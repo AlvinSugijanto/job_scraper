@@ -1,0 +1,97 @@
+# ================================
+# MONOLITH GITIGNORE
+# ================================
+
+# ================================
+# GENERAL
+# ================================
+.DS_Store
+*.pem
+*.log
+.env
+.env.*
+!.env.example
+
+# ================================
+# CLIENT (Next.js)
+# ================================
+
+# dependencies
+client/node_modules/
+client/.pnp
+client/.pnp.*
+client/.yarn/*
+!client/.yarn/patches
+!client/.yarn/plugins
+!client/.yarn/releases
+!client/.yarn/versions
+
+# testing
+client/coverage/
+
+# next.js
+client/.next/
+client/out/
+
+# production
+client/build/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+client/.vercel/
+
+# typescript
+*.tsbuildinfo
+client/next-env.d.ts
+
+# ================================
+# SERVER (Python/FastAPI)
+# ================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+server/venv/
+server/.venv/
+server/env/
+.venv/
+venv/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints/

@@ -1,0 +1,53 @@
+stages:
+  - build
+  - push
+  # - apply
+  - rollout
+  # - rmi
+variables:
+  IMAGE: 10.1.111.130:5000/fe/nawadhya-web:dev
+
+build:
+  stage: build
+  tags:
+    - docker
+  script:
+    - docker build --network=host -t $IMAGE .
+  only:
+    - dev
+
+push:
+  stage: push
+  tags:
+    - docker
+  script:
+    - docker push $IMAGE
+  only:
+    - dev
+
+# rmi:
+#   stage: rmi
+#   tags:
+#     - docker
+#   script:
+#     - docker rmi -f $IMAGE
+#   only:
+#     - dev
+
+# apply:
+#   stage: apply
+#   tags:
+#     - kubectl
+#   script:
+#     - kubectl -n frontend-dev apply -f deploy-np.yaml
+#   only:
+#     - dev
+
+rollout:
+  stage: rollout
+  tags:
+    - kubectl
+  script:
+    - kubectl -n frontend-dev rollout restart deployment/nawadhya-web
+  only:
+    - dev

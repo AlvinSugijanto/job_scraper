@@ -1,0 +1,9 @@
+export { default as TypographyH1 } from "./h1";
+export { default as TypographyH2 } from "./h2";
+export { default as TypographyH3 } from "./h3";
+export { default as TypographyH4 } from "./h4";
+export { default as TypographyP } from "./p";
+export { default as TypographyLead } from "./lead";
+export { default as TypographyLarge } from "./large";
+export { default as TypographySmall } from "./small";
+export { default as TypographyMuted } from "./muted";
