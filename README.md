@@ -14,6 +14,12 @@ A full-stack application to scrape and manage job listings from LinkedIn.
 - 💾 **Persistent Storage** - SQLite database for storing jobs
 - 🐳 **Docker Ready** - Run with Docker Compose
 
+## Screenshots
+
+![Dashboard](public/screenshot.png)
+
+![Job Detail](public/screenshot1.png)
+
 ## Tech Stack
 
 | Frontend     | Backend        |
@@ -64,11 +70,8 @@ cd job_scraper
 # Install root dependencies
 npm install
 
-# Setup server (creates venv & installs packages)
-npm run server:setup
-
-# Install client dependencies
-cd client && npm install && cd ..
+# Setup server (venv + pip) and client (npm install)
+npm run setup
 ```
 
 #### Run Development

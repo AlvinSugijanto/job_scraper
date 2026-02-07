@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
+    "setup": "npm run server:setup && npm run client:setup",
     "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"yellow,cyan\" \"npm run server:dev\" \"npm run client:dev\"",
     "client:dev": "cd client && npm run dev",
     "client:build": "cd client && npm run build",
     "client:lint": "cd client && npm run lint",
+    "client:setup": "cd client && npm install",
     "server:dev": "cd server && call venv\\Scripts\\activate && python main.py",
     "server:setup": "cd server && python -m venv venv && call venv\\Scripts\\activate && pip install -r requirements.txt"
   },
