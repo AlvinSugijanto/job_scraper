@@ -289,11 +289,14 @@ def parse_job_card(card, session=None):
             "date_posted": date_posted.strftime("%Y-%m-%d") if date_posted else None,
             "job_url": f"{BASE_URL}/jobs/view/{job_id}",
             "description": None,
+            "work_type": None,
         }
 
-        # Fetch full description if requested
+        # Fetch full description and work type if session provided
         if session:
-            job["description"] = get_job_description(session, job_id)
+            job_details = get_job_description(session, job_id)
+            job["description"] = job_details["description"]
+            job["work_type"] = job_details["work_type"]
 
         return job
 
@@ -302,21 +305,35 @@ def parse_job_card(card, session=None):
 
 
 def get_job_description(session, job_id):
-    """Fetch full job description from job detail page."""
+    """Fetch full job description and work type from job detail page."""
     try:
         response = session.get(f"{BASE_URL}/jobs/view/{job_id}", timeout=5)
         if response.status_code != 200:
-            return None
+            return {"description": None, "work_type": None}
 
         soup = BeautifulSoup(response.text, "html.parser")
+
+        # Get description
         desc_div = soup.find(
             "div", class_=lambda x: x and "show-more-less-html__markup" in x
         )
+        description = str(desc_div) if desc_div else None
 
-        if desc_div:
-            # Return inner HTML (preserve HTML tags for formatting)
-            return str(desc_div)
-        return None
+        # Get work type from fit-level-preferences buttons
+        work_type = None
+        fit_level_div = soup.find("div", class_="job-details-fit-level-preferences")
+        if fit_level_div:
+            buttons = fit_level_div.find_all("button")
+            for button in buttons:
+                button_text = button.get_text(strip=True).lower()
+                if "remote" in button_text:
+                    work_type = "remote"
+                    break
+                elif "hybrid" in button_text:
+                    work_type = "hybrid"
+                    break
+
+        return {"description": description, "work_type": work_type}
 
     except:
-        return None
+        return {"description": None, "work_type": None}

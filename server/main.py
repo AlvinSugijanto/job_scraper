@@ -61,6 +61,8 @@ class Job(BaseModel):
     date_posted: Optional[str] = None
     job_url: str
     description: Optional[str] = None
+    created_at: Optional[str] = None
+    job_type: Optional[str] = None
 
 
 class JobSearchResponse(BaseModel):
@@ -94,10 +96,29 @@ class SearchRequest(BaseModel):
 
 def save_jobs_to_db(db: Session, jobs: list, keywords: str):
     """Simpan jobs ke database, skip yang sudah ada."""
+    from models import detect_job_type, JobType
+
     saved_count = 0
     for job_data in jobs:
         existing = db.query(JobModel).filter(JobModel.id == job_data["id"]).first()
         if not existing:
+            # Prioritize work_type from scraper (extracted from LinkedIn element)
+            scraped_work_type = job_data.get("work_type")
+
+            if scraped_work_type:
+                # Use scraped work_type directly
+                job_type = JobType(scraped_work_type)
+            else:
+                # Fallback: detect from description, title, and location
+                combined_text = " ".join(
+                    [
+                        job_data.get("description", "") or "",
+                        job_data.get("title", "") or "",
+                        job_data.get("location", "") or "",
+                    ]
+                )
+                job_type = detect_job_type(combined_text)
+
             db_job = JobModel(
                 id=job_data["id"],
                 title=job_data["title"],
@@ -108,6 +129,7 @@ def save_jobs_to_db(db: Session, jobs: list, keywords: str):
                 date_posted=job_data.get("date_posted"),
                 job_url=job_data["job_url"],
                 description=job_data.get("description"),
+                job_type=job_type,
                 search_keywords=keywords,
             )
             db.add(db_job)
@@ -236,7 +258,7 @@ def get_stored_jobs(
     ),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     skip: int = Query(0, ge=0, description="Skip N results"),
-    limit: int = Query(25, ge=1, le=100, description="Limit results"),
+    limit: int = Query(25, ge=1, le=10000, description="Limit results"),
     db: Session = Depends(get_db),
 ):
     """Ambil semua jobs yang tersimpan di database."""
@@ -303,29 +325,6 @@ def get_stored_job(job_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
 
     return {"success": True, "job": job.to_dict()}
-
-
-@app.delete("/jobs/stored")
-def delete_all_stored_jobs(db: Session = Depends(get_db)):
-    """Hapus semua jobs dari database."""
-    count = db.query(JobModel).delete()
-    db.commit()
-
-    return {"success": True, "deleted": count}
-
-
-@app.delete("/jobs/stored/{job_id}")
-def delete_stored_job(job_id: str, db: Session = Depends(get_db)):
-    """Hapus job tertentu dari database."""
-    job = db.query(JobModel).filter(JobModel.id == job_id).first()
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    db.delete(job)
-    db.commit()
-
-    return {"success": True, "deleted_id": job_id}
 
 
 # ============ WEBSOCKET ROUTES ============

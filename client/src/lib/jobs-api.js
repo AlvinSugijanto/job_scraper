@@ -1,7 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export async function searchJobs(params) {
-  const response = await fetch(`${API_URL}/jobs/search`, {
+  const response = await fetch("/api/jobs/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -30,7 +28,7 @@ export async function getStoredJobs({
   params.append("skip", skip.toString());
   params.append("limit", limit.toString());
 
-  const response = await fetch(`${API_URL}/jobs/stored?${params}`);
+  const response = await fetch(`/api/jobs/stored?${params}`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch stored jobs");
@@ -40,34 +38,10 @@ export async function getStoredJobs({
 }
 
 export async function getJob(id) {
-  const response = await fetch(`${API_URL}/jobs/stored/${id}`);
+  const response = await fetch(`/api/jobs/stored/${id}`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch job");
-  }
-
-  return response.json();
-}
-
-export async function deleteJob(id) {
-  const response = await fetch(`${API_URL}/jobs/stored/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to delete job");
-  }
-
-  return response.json();
-}
-
-export async function deleteAllJobs() {
-  const response = await fetch(`${API_URL}/jobs/stored`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to delete all jobs");
   }
 
   return response.json();

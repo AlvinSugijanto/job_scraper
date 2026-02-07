@@ -23,7 +23,7 @@ export function fTime(date, newFormat) {
 }
 
 export function fDateTime(date, newFormat) {
-  const fm = newFormat || "dd MMM yyyy HH:mm";
+  const fm = newFormat || "dd MMM yyyy HH:mm a";
 
   return date ? format(new Date(date), fm) : "";
 }
@@ -85,7 +85,7 @@ export function dateRemaining(startDate, endDate) {
 
   if (!isValid(start) || !isValid(end)) {
     throw new Error(
-      "Invalid date input. Use Date object or ISO string (YYYY-MM-DD)."
+      "Invalid date input. Use Date object or ISO string (YYYY-MM-DD).",
     );
   }
 

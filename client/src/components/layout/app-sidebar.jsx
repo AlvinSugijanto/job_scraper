@@ -35,9 +35,9 @@ export function AppSidebar({ ...props }) {
         <div className="flex items-center justify-between w-full px-2 h-full">
           <Link href="/dashboard" className="flex items-center gap-2">
             {open ? (
-              <span className="font-bold text-lg">Dashboard</span>
+              <span className="font-bold text-lg">JobScraper</span>
             ) : (
-              <span className="font-bold text-lg">D</span>
+              <span className="font-bold text-lg">JS</span>
             )}
           </Link>
           <Button

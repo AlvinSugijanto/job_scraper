@@ -44,7 +44,7 @@ export function JobDescription({ description }) {
 
   return (
     <div
-      className="job-description prose prose-sm dark:prose-invert max-w-none
+      className="job-description prose prose-sm dark:prose-invert max-w-none text-sm text-gray-800
         [&_ul]:list-disc [&_ul]:list-inside [&_ul]:my-2 [&_ul]:ml-2
         [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:my-2 [&_ol]:ml-2
         [&_li]:text-muted-foreground [&_li]:mb-1

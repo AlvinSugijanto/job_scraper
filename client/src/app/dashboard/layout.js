@@ -9,7 +9,7 @@ import { AutoBreadcrumb } from "@/components/layout/auto-breadcrumb";
 import { ModeToggle } from "@/components/layout/mode-toogle";
 
 export const metadata = {
-  title: "Dashboard | Next.js Boilerplate",
+  title: "JobScraper",
 };
 
 export default function DashboardLayout({ children }) {

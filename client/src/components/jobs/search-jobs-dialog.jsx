@@ -34,6 +34,14 @@ const JOB_TYPES = [
   { value: "temporary", label: "Temporary" },
 ];
 
+const POSTED_WITHIN_TYPES = [
+  { value: "24", label: "Last 24 Hours" },
+  { value: "72", label: "Last 3 Days" },
+  { value: "168", label: "Last 7 Days" },
+  { value: "336", label: "Last 14 Days" },
+  { value: "720", label: "Last 30 Days" },
+];
+
 export function SearchJobsDialog({ onSuccess }) {
   const [open, setOpen] = useState(false);
   const scraping = useScrapingProgress();
@@ -52,6 +60,7 @@ export function SearchJobsDialog({ onSuccess }) {
       is_remote: false,
       easy_apply: false,
       results_wanted: 25,
+      hours_old: "",
     },
   });
 
@@ -74,6 +83,7 @@ export function SearchJobsDialog({ onSuccess }) {
       is_remote: data.is_remote,
       easy_apply: data.easy_apply,
       results_wanted: parseInt(data.results_wanted) || 25,
+      hours_old: data.hours_old ? parseInt(data.hours_old) : undefined,
     };
 
     scraping.startScraping(params);
@@ -153,16 +163,37 @@ export function SearchJobsDialog({ onSuccess }) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="results_wanted">Results Wanted</Label>
-            <Input
-              id="results_wanted"
-              type="number"
-              min="1"
-              max="100"
-              disabled={scraping.isActive}
-              {...register("results_wanted")}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="results_wanted">Results Wanted</Label>
+              <Input
+                id="results_wanted"
+                type="number"
+                min="1"
+                max="100"
+                disabled={scraping.isActive}
+                {...register("results_wanted")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hours_old">Posted Within</Label>
+              <Select
+                onValueChange={(value) => setValue("hours_old", value)}
+                defaultValue=""
+                disabled={scraping.isActive}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select posted within" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POSTED_WITHIN_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">
