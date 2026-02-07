@@ -5,9 +5,11 @@ LinkedIn Job Scraper - Core Functions
 import requests
 import time
 import random
+import asyncio
 from datetime import datetime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
+from typing import Callable, Optional
 
 
 # ============ CONFIG ============
@@ -33,6 +35,111 @@ JOB_TYPE_CODES = {
 # ============ MAIN FUNCTIONS ============
 
 
+async def search_jobs_async(
+    keywords: str,
+    location: str = "",
+    distance: int = None,
+    job_type: str = None,
+    is_remote: bool = False,
+    easy_apply: bool = False,
+    hours_old: int = None,
+    results_wanted: int = 25,
+    existing_ids: set = None,
+    on_progress: Optional[Callable] = None,
+):
+    """
+    Async version of search_jobs with progress callback support.
+
+    Args:
+        on_progress: Async callback function(event_type, data)
+                    event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
+    """
+    jobs = []
+    seen_ids = existing_ids.copy() if existing_ids else set()
+    start = 0
+    page = 1
+
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
+    while len(jobs) < results_wanted and start < 1000:
+        # Notify: fetching page
+        if on_progress:
+            await on_progress("fetching_page", {"page": page, "jobs_found": len(jobs)})
+
+        # Build params
+        params = {
+            "keywords": keywords,
+            "location": location,
+            "start": start,
+            "pageNum": 0,
+        }
+
+        if distance:
+            params["distance"] = distance
+        if job_type and job_type in JOB_TYPE_CODES:
+            params["f_JT"] = JOB_TYPE_CODES[job_type]
+        if is_remote:
+            params["f_WT"] = 2
+        if easy_apply:
+            params["f_AL"] = "true"
+        if hours_old:
+            params["f_TPR"] = f"r{hours_old * 3600}"
+
+        # Make request
+        try:
+            response = session.get(
+                f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
+                params=params,
+                timeout=10,
+            )
+
+            if response.status_code == 429:
+                # Rate limited - notify client
+                wait_seconds = 60
+                if on_progress:
+                    await on_progress("rate_limit", {"wait_seconds": wait_seconds})
+                await asyncio.sleep(wait_seconds)
+                continue
+
+            if response.status_code != 200:
+                break
+
+        except Exception:
+            break
+
+        # Parse HTML
+        soup = BeautifulSoup(response.text, "html.parser")
+        job_cards = soup.find_all("div", class_="base-search-card")
+
+        if not job_cards:
+            break
+
+        # Extract jobs from cards
+        for i, card in enumerate(job_cards):
+            if on_progress:
+                await on_progress(
+                    "parsing", {"current": i + 1, "total": len(job_cards)}
+                )
+
+            job = parse_job_card(card, session)
+            if job and job["id"] not in seen_ids:
+                seen_ids.add(job["id"])
+                jobs.append(job)
+
+                if len(jobs) >= results_wanted:
+                    break
+
+        # Delay before next page
+        start += len(job_cards)
+        page += 1
+        if len(jobs) < results_wanted:
+            delay = random.uniform(2, 5)
+            await asyncio.sleep(delay)
+
+    return jobs
+
+
 def search_jobs(
     keywords: str,
     location: str = "",
@@ -42,11 +149,10 @@ def search_jobs(
     easy_apply: bool = False,
     hours_old: int = None,
     results_wanted: int = 25,
-    fetch_description: bool = False,
     existing_ids: set = None,
 ):
     """
-    Search LinkedIn jobs with given parameters.
+    Search LinkedIn jobs with given parameters (sync version).
 
     Args:
         keywords: Search keywords (e.g., "python developer")
@@ -57,7 +163,6 @@ def search_jobs(
         easy_apply: Filter Easy Apply jobs only
         hours_old: Filter jobs posted within X hours
         results_wanted: Number of results to fetch (max ~1000)
-        fetch_description: Fetch full job description (slower)
         existing_ids: Set of job IDs to skip (already in database)
 
     Returns:
@@ -117,7 +222,7 @@ def search_jobs(
 
         # Extract jobs from cards
         for card in job_cards:
-            job = parse_job_card(card, session if fetch_description else None)
+            job = parse_job_card(card, session)
             if job and job["id"] not in seen_ids:
                 seen_ids.add(job["id"])
                 jobs.append(job)
@@ -209,7 +314,8 @@ def get_job_description(session, job_id):
         )
 
         if desc_div:
-            return desc_div.get_text(separator="\n", strip=True)
+            # Return inner HTML (preserve HTML tags for formatting)
+            return str(desc_div)
         return None
 
     except:

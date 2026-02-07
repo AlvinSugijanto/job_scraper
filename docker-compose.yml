@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  # Python FastAPI Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: linkedin-scraper-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./server/jobs.db:/app/jobs.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js Client
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+        - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+    container_name: linkedin-scraper-client
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  data:
