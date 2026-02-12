@@ -59,6 +59,9 @@ __pycache__/
 venv/
 .venv/
 env/
+server/.glints_browser_data/
+server/glints_auth.json
+
 
 # Database
 *.db
