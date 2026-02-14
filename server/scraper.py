@@ -290,6 +290,7 @@ def parse_job_card(card, session=None):
             "job_url": f"{BASE_URL}/jobs/view/{job_id}",
             "description": None,
             "work_type": None,
+            "source": "linkedin",
         }
 
         # Fetch full description and work type if session provided

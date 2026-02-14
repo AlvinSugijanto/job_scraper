@@ -131,6 +131,7 @@ def save_jobs_to_db(db: Session, jobs: list, keywords: str):
                 description=job_data.get("description"),
                 job_type=job_type,
                 search_keywords=keywords,
+                source=job_data.get("source"),
             )
             db.add(db_job)
             saved_count += 1
