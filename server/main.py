@@ -16,7 +16,7 @@ from typing import Optional, List
 from enum import Enum
 from sqlalchemy.orm import Session
 
-from scraper import search_jobs, search_jobs_async
+from scraper import search_jobs_async
 from database import engine, get_db, Base
 from models import Job as JobModel
 from websocket_manager import manager
@@ -63,6 +63,7 @@ class Job(BaseModel):
     description: Optional[str] = None
     created_at: Optional[str] = None
     job_type: Optional[str] = None
+    job_contract: Optional[str] = None
 
 
 class JobSearchResponse(BaseModel):
@@ -94,30 +95,23 @@ class SearchRequest(BaseModel):
 # ============ HELPER FUNCTIONS ============
 
 
-def save_jobs_to_db(db: Session, jobs: list, keywords: str):
+def save_jobs_to_db(db: Session, jobs: list, keywords: str, job_contract: str = None):
     """Simpan jobs ke database, skip yang sudah ada."""
-    from models import detect_job_type, JobType
+    from models import detect_job_type
 
     saved_count = 0
     for job_data in jobs:
         existing = db.query(JobModel).filter(JobModel.id == job_data["id"]).first()
         if not existing:
-            # Prioritize work_type from scraper (extracted from LinkedIn element)
-            scraped_work_type = job_data.get("work_type")
-
-            if scraped_work_type:
-                # Use scraped work_type directly
-                job_type = JobType(scraped_work_type)
-            else:
-                # Fallback: detect from description, title, and location
-                combined_text = " ".join(
-                    [
-                        job_data.get("description", "") or "",
-                        job_data.get("title", "") or "",
-                        job_data.get("location", "") or "",
-                    ]
-                )
-                job_type = detect_job_type(combined_text)
+            # Detect work arrangement (remote/hybrid/onsite) from text
+            combined_text = " ".join(
+                [
+                    job_data.get("description", "") or "",
+                    job_data.get("title", "") or "",
+                    job_data.get("location", "") or "",
+                ]
+            )
+            job_type = detect_job_type(combined_text)
 
             db_job = JobModel(
                 id=job_data["id"],
@@ -130,6 +124,7 @@ def save_jobs_to_db(db: Session, jobs: list, keywords: str):
                 job_url=job_data["job_url"],
                 description=job_data.get("description"),
                 job_type=job_type,
+                job_contract=job_contract,
                 search_keywords=keywords,
                 source=job_data.get("source"),
             )
@@ -158,91 +153,52 @@ def root():
     }
 
 
-@app.get("/jobs", response_model=JobSearchResponse)
-def get_jobs(
-    keywords: str = Query(..., description="Kata kunci pencarian (wajib)"),
-    location: str = Query("", description="Lokasi pekerjaan"),
-    distance: Optional[int] = Query(None, description="Radius pencarian (miles)"),
-    job_type: Optional[JobType] = Query(None, description="Tipe pekerjaan"),
-    is_remote: bool = Query(False, description="Hanya pekerjaan remote"),
-    easy_apply: bool = Query(False, description="Hanya Easy Apply"),
-    hours_old: Optional[int] = Query(None, description="Posted dalam X jam terakhir"),
-    results_wanted: int = Query(25, ge=1, le=100, description="Jumlah hasil (max 100)"),
-    db: Session = Depends(get_db),
-):
-    """
-    Cari lowongan kerja dari LinkedIn.
-    Jobs yang sudah ada di database akan di-skip saat scraping.
-
-    **Contoh:**
-    - `/jobs?keywords=python developer&location=Jakarta`
-    - `/jobs?keywords=frontend&is_remote=true&job_type=full_time`
-    """
-    try:
-        # Get existing job IDs from database
-        existing_ids = get_existing_job_ids(db)
-
-        # Scrape jobs
-        jobs = search_jobs(
-            keywords=keywords,
-            location=location,
-            distance=distance,
-            job_type=job_type.value if job_type else None,
-            is_remote=is_remote,
-            easy_apply=easy_apply,
-            hours_old=hours_old,
-            results_wanted=results_wanted,
-            existing_ids=existing_ids,
-        )
-
-        # Save new jobs to database
-        new_count = save_jobs_to_db(db, jobs, keywords)
-
-        return JobSearchResponse(
-            success=True,
-            count=len(jobs),
-            new_jobs=new_count,
-            from_db=len(jobs) - new_count,
-            jobs=jobs,
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# NOTE: Endpoints below are unused - UI uses WebSocket (/ws/scrape) instead
+# @app.get("/jobs", response_model=JobSearchResponse)
+# def get_jobs(
+#     keywords: str = Query(..., description="Kata kunci pencarian (wajib)"),
+#     location: str = Query("", description="Lokasi pekerjaan"),
+#     distance: Optional[int] = Query(None, description="Radius pencarian (miles)"),
+#     job_type: Optional[JobType] = Query(None, description="Tipe pekerjaan"),
+#     is_remote: bool = Query(False, description="Hanya pekerjaan remote"),
+#     easy_apply: bool = Query(False, description="Hanya Easy Apply"),
+#     hours_old: Optional[int] = Query(None, description="Posted dalam X jam terakhir"),
+#     results_wanted: int = Query(25, ge=1, le=100, description="Jumlah hasil (max 100)"),
+#     db: Session = Depends(get_db),
+# ):
+#     try:
+#         existing_ids = get_existing_job_ids(db)
+#         jobs = search_jobs(
+#             keywords=keywords, location=location, distance=distance,
+#             job_type=job_type.value if job_type else None,
+#             is_remote=is_remote, easy_apply=easy_apply,
+#             hours_old=hours_old, results_wanted=results_wanted,
+#             existing_ids=existing_ids,
+#         )
+#         new_count = save_jobs_to_db(db, jobs, keywords)
+#         return JobSearchResponse(success=True, count=len(jobs), new_jobs=new_count,
+#                                  from_db=len(jobs) - new_count, jobs=jobs)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/jobs/search", response_model=JobSearchResponse)
-def search_jobs_post(request: SearchRequest, db: Session = Depends(get_db)):
-    """
-    Cari lowongan kerja dengan POST request.
-    Berguna untuk request yang lebih kompleks.
-    """
-    try:
-        existing_ids = get_existing_job_ids(db)
-
-        jobs = search_jobs(
-            keywords=request.keywords,
-            location=request.location,
-            distance=request.distance,
-            job_type=request.job_type.value if request.job_type else None,
-            is_remote=request.is_remote,
-            easy_apply=request.easy_apply,
-            hours_old=request.hours_old,
-            results_wanted=request.results_wanted,
-            existing_ids=existing_ids,
-        )
-
-        new_count = save_jobs_to_db(db, jobs, request.keywords)
-
-        return JobSearchResponse(
-            success=True,
-            count=len(jobs),
-            new_jobs=new_count,
-            from_db=len(jobs) - new_count,
-            jobs=jobs,
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.post("/jobs/search", response_model=JobSearchResponse)
+# def search_jobs_post(request: SearchRequest, db: Session = Depends(get_db)):
+#     try:
+#         existing_ids = get_existing_job_ids(db)
+#         jobs = search_jobs(
+#             keywords=request.keywords, location=request.location,
+#             distance=request.distance,
+#             job_type=request.job_type.value if request.job_type else None,
+#             is_remote=request.is_remote, easy_apply=request.easy_apply,
+#             hours_old=request.hours_old, results_wanted=request.results_wanted,
+#             existing_ids=existing_ids,
+#         )
+#         new_count = save_jobs_to_db(db, jobs, request.keywords)
+#         return JobSearchResponse(success=True, count=len(jobs), new_jobs=new_count,
+#                                  from_db=len(jobs) - new_count, jobs=jobs)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============ STORED JOBS ROUTES ============
@@ -335,7 +291,7 @@ class WebSocketSearchRequest(BaseModel):
     keywords: str
     location: Optional[str] = ""
     distance: Optional[int] = None
-    job_type: Optional[str] = None
+    job_contract: Optional[str] = None
     is_remote: Optional[bool] = False
     easy_apply: Optional[bool] = False
     hours_old: Optional[int] = None
@@ -374,7 +330,7 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
             keywords=request.keywords,
             location=request.location,
             distance=request.distance,
-            job_type=request.job_type,
+            job_contract=request.job_contract,
             is_remote=request.is_remote,
             easy_apply=request.easy_apply,
             hours_old=request.hours_old,
@@ -384,7 +340,7 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         )
 
         # Save to database
-        new_count = save_jobs_to_db(db, jobs, request.keywords)
+        new_count = save_jobs_to_db(db, jobs, request.keywords, request.job_contract)
 
         # Notify: completed
         await manager.send_completed(client_id, len(jobs), new_count)

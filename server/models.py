@@ -51,6 +51,7 @@ class Job(Base):
     job_url = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     job_type = Column(SQLEnum(JobType), nullable=True, default=JobType.onsite)
+    job_contract = Column(String, nullable=True)
     search_keywords = Column(String, nullable=True)
     source = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -68,6 +69,7 @@ class Job(Base):
             "job_url": self.job_url,
             "description": self.description,
             "job_type": self.job_type.value if self.job_type else "onsite",
+            "job_contract": self.job_contract,
             "source": self.source,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

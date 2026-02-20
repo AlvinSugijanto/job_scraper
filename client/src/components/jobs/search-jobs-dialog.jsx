@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useScrapingProgress, ScrapingProgress } from "./scraping-progress";
 
-const JOB_TYPES = [
+const JOB_CONTRACT = [
   { value: "full_time", label: "Full Time" },
   { value: "part_time", label: "Part Time" },
   { value: "internship", label: "Internship" },
@@ -56,7 +56,7 @@ export function SearchJobsDialog({ onSuccess }) {
     defaultValues: {
       keywords: "",
       location: "",
-      job_type: "",
+      job_contract: "",
       is_remote: false,
       easy_apply: false,
       results_wanted: 25,
@@ -79,7 +79,7 @@ export function SearchJobsDialog({ onSuccess }) {
     const params = {
       keywords: data.keywords,
       location: data.location || undefined,
-      job_type: data.job_type || undefined,
+      job_contract: data.job_contract || undefined,
       is_remote: data.is_remote,
       easy_apply: data.easy_apply,
       results_wanted: parseInt(data.results_wanted) || 25,
@@ -146,7 +146,7 @@ export function SearchJobsDialog({ onSuccess }) {
           <div className="space-y-2 w-full">
             <Label>Job Type</Label>
             <Select
-              onValueChange={(value) => setValue("job_type", value)}
+              onValueChange={(value) => setValue("job_contract", value)}
               defaultValue=""
               disabled={scraping.isActive}
             >
@@ -154,7 +154,7 @@ export function SearchJobsDialog({ onSuccess }) {
                 <SelectValue placeholder="Select job type" />
               </SelectTrigger>
               <SelectContent>
-                {JOB_TYPES.map((type) => (
+                {JOB_CONTRACT.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
                   </SelectItem>

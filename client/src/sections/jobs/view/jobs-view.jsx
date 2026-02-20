@@ -68,6 +68,8 @@ export default function JobsView() {
     direction: searchParams.get("sortOrder") || savedState?.sortOrder || "desc",
   });
 
+  console.log(jobs);
+
   // Pagination
   const [page, setPage] = useState(
     parseInt(searchParams.get("page") || savedState?.page || "0", 10),

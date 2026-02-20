@@ -23,7 +23,7 @@ HEADERS = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
 
-JOB_TYPE_CODES = {
+JOB_CONTRACT_CODES = {
     "full_time": "F",
     "part_time": "P",
     "internship": "I",
@@ -39,7 +39,7 @@ async def search_jobs_async(
     keywords: str,
     location: str = "",
     distance: int = None,
-    job_type: str = None,
+    job_contract: str = None,
     is_remote: bool = False,
     easy_apply: bool = False,
     hours_old: int = None,
@@ -77,8 +77,8 @@ async def search_jobs_async(
 
         if distance:
             params["distance"] = distance
-        if job_type and job_type in JOB_TYPE_CODES:
-            params["f_JT"] = JOB_TYPE_CODES[job_type]
+        if job_contract and job_contract in JOB_CONTRACT_CODES:
+            params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
         if is_remote:
             params["f_WT"] = 2
         if easy_apply:
@@ -86,6 +86,12 @@ async def search_jobs_async(
         if hours_old:
             params["f_TPR"] = f"r{hours_old * 3600}"
 
+        # print full url
+        full_url = (
+            f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search?"
+            + "&".join([f"{k}={v}" for k, v in params.items()])
+        )
+        print("Full Url :", full_url)
         # Make request
         try:
             response = session.get(
@@ -144,7 +150,7 @@ def search_jobs(
     keywords: str,
     location: str = "",
     distance: int = None,
-    job_type: str = None,
+    job_contract: str = None,
     is_remote: bool = False,
     easy_apply: bool = False,
     hours_old: int = None,
@@ -158,7 +164,7 @@ def search_jobs(
         keywords: Search keywords (e.g., "python developer")
         location: Location to search (e.g., "Jakarta, Indonesia")
         distance: Search radius in miles
-        job_type: One of: full_time, part_time, internship, contract, temporary
+        job_contract: One of: full_time, part_time, internship, contract, temporary
         is_remote: Filter remote jobs only
         easy_apply: Filter Easy Apply jobs only
         hours_old: Filter jobs posted within X hours
@@ -186,8 +192,8 @@ def search_jobs(
 
         if distance:
             params["distance"] = distance
-        if job_type and job_type in JOB_TYPE_CODES:
-            params["f_JT"] = JOB_TYPE_CODES[job_type]
+        if job_contract and job_contract in JOB_CONTRACT_CODES:
+            params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
         if is_remote:
             params["f_WT"] = 2
         if easy_apply:
@@ -289,15 +295,14 @@ def parse_job_card(card, session=None):
             "date_posted": date_posted.strftime("%Y-%m-%d") if date_posted else None,
             "job_url": f"{BASE_URL}/jobs/view/{job_id}",
             "description": None,
-            "work_type": None,
+            "job_contract": None,
             "source": "linkedin",
         }
 
-        # Fetch full description and work type if session provided
+        # Fetch full description if session provided
         if session:
             job_details = get_job_description(session, job_id)
             job["description"] = job_details["description"]
-            job["work_type"] = job_details["work_type"]
 
         return job
 
@@ -306,35 +311,20 @@ def parse_job_card(card, session=None):
 
 
 def get_job_description(session, job_id):
-    """Fetch full job description and work type from job detail page."""
+    """Fetch full job description from job detail page."""
     try:
         response = session.get(f"{BASE_URL}/jobs/view/{job_id}", timeout=5)
         if response.status_code != 200:
-            return {"description": None, "work_type": None}
+            return {"description": None}
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Get description
         desc_div = soup.find(
             "div", class_=lambda x: x and "show-more-less-html__markup" in x
         )
         description = str(desc_div) if desc_div else None
 
-        # Get work type from fit-level-preferences buttons
-        work_type = None
-        fit_level_div = soup.find("div", class_="job-details-fit-level-preferences")
-        if fit_level_div:
-            buttons = fit_level_div.find_all("button")
-            for button in buttons:
-                button_text = button.get_text(strip=True).lower()
-                if "remote" in button_text:
-                    work_type = "remote"
-                    break
-                elif "hybrid" in button_text:
-                    work_type = "hybrid"
-                    break
-
-        return {"description": description, "work_type": work_type}
+        return {"description": description}
 
     except:
-        return {"description": None, "work_type": None}
+        return {"description": None}

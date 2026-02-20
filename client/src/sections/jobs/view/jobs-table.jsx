@@ -40,7 +40,7 @@ const SORTABLE_COLUMNS = [
   { key: "location", label: "Location" },
   { key: "salary", label: "Salary" },
   { key: "date_posted", label: "Posted" },
-  { key: "created_at", label: "Created" },
+  { key: "created_at", label: "Searched At" },
 ];
 
 export default function JobsTable({
