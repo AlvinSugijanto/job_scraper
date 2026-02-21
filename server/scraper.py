@@ -2,6 +2,7 @@
 LinkedIn Job Scraper - Core Functions
 """
 
+from websocket_manager import ConnectionManager
 import requests
 import time
 import random
@@ -31,6 +32,12 @@ JOB_CONTRACT_CODES = {
     "temporary": "T",
 }
 
+JOB_TYPE_CODES = {
+    "remote": 2,
+    "hybrid": 3,
+    "onsite": 1,
+}
+
 
 # ============ MAIN FUNCTIONS ============
 
@@ -40,12 +47,13 @@ async def search_jobs_async(
     location: str = "",
     distance: int = None,
     job_contract: str = None,
-    is_remote: bool = False,
+    job_type: str = None,
     easy_apply: bool = False,
     hours_old: int = None,
     results_wanted: int = 25,
     existing_ids: set = None,
-    on_progress: Optional[Callable] = None,
+    manager: ConnectionManager = None,
+    client_id: str = "",
 ):
     """
     Async version of search_jobs with progress callback support.
@@ -64,8 +72,8 @@ async def search_jobs_async(
 
     while len(jobs) < results_wanted and start < 1000:
         # Notify: fetching page
-        if on_progress:
-            await on_progress("fetching_page", {"page": page, "jobs_found": len(jobs)})
+        if manager:
+            await manager.send_fetching_page(client_id, page, len(jobs))
 
         # Build params
         params = {
@@ -79,8 +87,8 @@ async def search_jobs_async(
             params["distance"] = distance
         if job_contract and job_contract in JOB_CONTRACT_CODES:
             params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
-        if is_remote:
-            params["f_WT"] = 2
+        if job_type and job_type in JOB_TYPE_CODES:
+            params["f_WT"] = JOB_TYPE_CODES[job_type]
         if easy_apply:
             params["f_AL"] = "true"
         if hours_old:
@@ -103,8 +111,8 @@ async def search_jobs_async(
             if response.status_code == 429:
                 # Rate limited - notify client
                 wait_seconds = 60
-                if on_progress:
-                    await on_progress("rate_limit", {"wait_seconds": wait_seconds})
+                if manager:
+                    await manager.send_rate_limit(client_id, wait_seconds)
                 await asyncio.sleep(wait_seconds)
                 continue
 
@@ -123,10 +131,8 @@ async def search_jobs_async(
 
         # Extract jobs from cards
         for i, card in enumerate(job_cards):
-            if on_progress:
-                await on_progress(
-                    "parsing", {"current": i + 1, "total": len(job_cards)}
-                )
+            if manager:
+                await manager.send_parsing(client_id, i + 1, len(job_cards))
 
             job = parse_job_card(card, session)
             if job and job["id"] not in seen_ids:
@@ -146,103 +152,103 @@ async def search_jobs_async(
     return jobs
 
 
-def search_jobs(
-    keywords: str,
-    location: str = "",
-    distance: int = None,
-    job_contract: str = None,
-    is_remote: bool = False,
-    easy_apply: bool = False,
-    hours_old: int = None,
-    results_wanted: int = 25,
-    existing_ids: set = None,
-):
-    """
-    Search LinkedIn jobs with given parameters (sync version).
+# def search_jobs(
+#     keywords: str,
+#     location: str = "",
+#     distance: int = None,
+#     job_contract: str = None,
+#     is_remote: bool = False,
+#     easy_apply: bool = False,
+#     hours_old: int = None,
+#     results_wanted: int = 25,
+#     existing_ids: set = None,
+# ):
+#     """
+#     Search LinkedIn jobs with given parameters (sync version).
 
-    Args:
-        keywords: Search keywords (e.g., "python developer")
-        location: Location to search (e.g., "Jakarta, Indonesia")
-        distance: Search radius in miles
-        job_contract: One of: full_time, part_time, internship, contract, temporary
-        is_remote: Filter remote jobs only
-        easy_apply: Filter Easy Apply jobs only
-        hours_old: Filter jobs posted within X hours
-        results_wanted: Number of results to fetch (max ~1000)
-        existing_ids: Set of job IDs to skip (already in database)
+#     Args:
+#         keywords: Search keywords (e.g., "python developer")
+#         location: Location to search (e.g., "Jakarta, Indonesia")
+#         distance: Search radius in miles
+#         job_contract: One of: full_time, part_time, internship, contract, temporary
+#         is_remote: Filter remote jobs only
+#         easy_apply: Filter Easy Apply jobs only
+#         hours_old: Filter jobs posted within X hours
+#         results_wanted: Number of results to fetch (max ~1000)
+#         existing_ids: Set of job IDs to skip (already in database)
 
-    Returns:
-        List of job dictionaries
-    """
-    jobs = []
-    seen_ids = existing_ids.copy() if existing_ids else set()
-    start = 0
+#     Returns:
+#         List of job dictionaries
+#     """
+#     jobs = []
+#     seen_ids = existing_ids.copy() if existing_ids else set()
+#     start = 0
 
-    session = requests.Session()
-    session.headers.update(HEADERS)
+#     session = requests.Session()
+#     session.headers.update(HEADERS)
 
-    while len(jobs) < results_wanted and start < 1000:
-        # Build params
-        params = {
-            "keywords": keywords,
-            "location": location,
-            "start": start,
-            "pageNum": 0,
-        }
+#     while len(jobs) < results_wanted and start < 1000:
+#         # Build params
+#         params = {
+#             "keywords": keywords,
+#             "location": location,
+#             "start": start,
+#             "pageNum": 0,
+#         }
 
-        if distance:
-            params["distance"] = distance
-        if job_contract and job_contract in JOB_CONTRACT_CODES:
-            params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
-        if is_remote:
-            params["f_WT"] = 2
-        if easy_apply:
-            params["f_AL"] = "true"
-        if hours_old:
-            params["f_TPR"] = f"r{hours_old * 3600}"
+#         if distance:
+#             params["distance"] = distance
+#         if job_contract and job_contract in JOB_CONTRACT_CODES:
+#             params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
+#         if is_remote:
+#             params["f_WT"] = 2
+#         if easy_apply:
+#             params["f_AL"] = "true"
+#         if hours_old:
+#             params["f_TPR"] = f"r{hours_old * 3600}"
 
-        # Make request
-        try:
-            response = session.get(
-                f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
-                params=params,
-                timeout=10,
-            )
+#         # Make request
+#         try:
+#             response = session.get(
+#                 f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
+#                 params=params,
+#                 timeout=10,
+#             )
 
-            if response.status_code == 429:
-                time.sleep(60)
-                continue
+#             if response.status_code == 429:
+#                 time.sleep(60)
+#                 continue
 
-            if response.status_code != 200:
-                break
+#             if response.status_code != 200:
+#                 break
 
-        except Exception:
-            break
+#         except Exception:
+#             break
 
-        # Parse HTML
-        soup = BeautifulSoup(response.text, "html.parser")
-        job_cards = soup.find_all("div", class_="base-search-card")
+#         # Parse HTML
+#         soup = BeautifulSoup(response.text, "html.parser")
+#         job_cards = soup.find_all("div", class_="base-search-card")
 
-        if not job_cards:
-            break
+#         if not job_cards:
+#             break
 
-        # Extract jobs from cards
-        for card in job_cards:
-            job = parse_job_card(card, session)
-            if job and job["id"] not in seen_ids:
-                seen_ids.add(job["id"])
-                jobs.append(job)
+#         # Extract jobs from cards
+#         for card in job_cards:
+#             job = parse_job_card(card, session)
+#             if job and job["id"] not in seen_ids:
+#                 seen_ids.add(job["id"])
+#                 jobs.append(job)
 
-                if len(jobs) >= results_wanted:
-                    break
+#                 if len(jobs) >= results_wanted:
+#                     break
 
-        # Delay before next page
-        start += len(job_cards)
-        if len(jobs) < results_wanted:
-            delay = random.uniform(2, 5)
-            time.sleep(delay)
+#         # Delay before next page
+#         start += len(job_cards)
+#         if len(jobs) < results_wanted:
+#             delay = random.uniform(2, 5)
+#             time.sleep(delay)
 
-    return jobs
+#     return jobs
 
 
 def parse_job_card(card, session=None):

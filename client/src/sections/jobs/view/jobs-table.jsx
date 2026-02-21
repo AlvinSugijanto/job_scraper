@@ -33,9 +33,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fDate, fDateTime } from "@/utils/format-time";
+import { JOB_CONTRACT, JOB_TYPE } from "@/data/enums";
 
 const SORTABLE_COLUMNS = [
   { key: "title", label: "Title" },
+  { key: "job_contract", label: "Contract" },
   { key: "company", label: "Company" },
   { key: "location", label: "Location" },
   { key: "salary", label: "Salary" },
@@ -146,10 +148,15 @@ export default function JobsTable({
               >
                 <div className="flex items-center gap-2">
                   <Badge variant="default" className="capitalize w-[60px]">
-                    {job.job_type}
+                    {JOB_TYPE.find((t) => t.value === job.job_type)?.label ??
+                      "-"}
                   </Badge>
                   <span className="line-clamp-1">{job.title}</span>
                 </div>
+              </TableCell>
+              <TableCell className="capitalize">
+                {JOB_CONTRACT.find((c) => c.value === job.job_contract)
+                  ?.label ?? "-"}
               </TableCell>
               <TableCell onClick={() => handleRowClick(job.id)}>
                 <div className="flex items-center gap-2">

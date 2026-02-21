@@ -11,6 +11,7 @@ export async function GET(request) {
     const data = await response.json();
     return Response.json(data, { status: response.status });
   } catch (error) {
+    console.log(error);
     return Response.json(
       { error: "Failed to fetch stored jobs" },
       { status: 500 },

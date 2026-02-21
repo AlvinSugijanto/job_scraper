@@ -2,13 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Briefcase,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-} from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -68,8 +62,6 @@ export default function JobsView() {
     direction: searchParams.get("sortOrder") || savedState?.sortOrder || "desc",
   });
 
-  console.log(jobs);
-
   // Pagination
   const [page, setPage] = useState(
     parseInt(searchParams.get("page") || savedState?.page || "0", 10),
@@ -128,6 +120,15 @@ export default function JobsView() {
     fetchJobs();
   }, [page, sortConfig]);
 
+  // Debounced search — auto-trigger 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchJobs(true);
+      updateSearchParams({ q: search || null, page: 0 });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Clear selection when jobs change
   useEffect(() => {
     setSelectedIds(new Set());
@@ -145,12 +146,6 @@ export default function JobsView() {
   const handlePageChange = (newPage) => {
     setPage(newPage);
     updateSearchParams({ page: newPage });
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    updateSearchParams({ q: search || null, page: 0 });
-    fetchJobs(true);
   };
 
   // Selection handlers
@@ -238,17 +233,12 @@ export default function JobsView() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <form onSubmit={handleSearch} className="flex items-center gap-2">
-                <Input
-                  placeholder="Search title, company, location..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-72"
-                />
-                <Button type="submit" variant="outline" size="icon">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </form>
+              <Input
+                placeholder="Search title, company, location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-72"
+              />
             </div>
           </div>
         </CardHeader>

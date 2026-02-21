@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, Clock, Check, AlertCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL;
 
 /**
  * Hook for WebSocket scraping with real-time progress
@@ -68,6 +68,7 @@ export function useScrapingProgress() {
 
           case "rate_limit":
             setStatus("rate_limit");
+            console.log(data);
             setMessage(data.message);
             setCountdown(data.wait_seconds);
 

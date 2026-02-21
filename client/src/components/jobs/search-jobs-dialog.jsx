@@ -25,22 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScrapingProgress, ScrapingProgress } from "./scraping-progress";
-
-const JOB_CONTRACT = [
-  { value: "full_time", label: "Full Time" },
-  { value: "part_time", label: "Part Time" },
-  { value: "internship", label: "Internship" },
-  { value: "contract", label: "Contract" },
-  { value: "temporary", label: "Temporary" },
-];
-
-const POSTED_WITHIN_TYPES = [
-  { value: "24", label: "Last 24 Hours" },
-  { value: "72", label: "Last 3 Days" },
-  { value: "168", label: "Last 7 Days" },
-  { value: "336", label: "Last 14 Days" },
-  { value: "720", label: "Last 30 Days" },
-];
+import { JOB_CONTRACT, JOB_TYPE, POSTED_WITHIN_TYPES } from "@/data/enums";
 
 export function SearchJobsDialog({ onSuccess }) {
   const [open, setOpen] = useState(false);
@@ -57,7 +42,7 @@ export function SearchJobsDialog({ onSuccess }) {
       keywords: "",
       location: "",
       job_contract: "",
-      is_remote: false,
+      job_type: "",
       easy_apply: false,
       results_wanted: 25,
       hours_old: "",
@@ -75,18 +60,30 @@ export function SearchJobsDialog({ onSuccess }) {
     }
   }, [open]);
 
-  const onSubmit = (data) => {
-    const params = {
-      keywords: data.keywords,
-      location: data.location || undefined,
-      job_contract: data.job_contract || undefined,
-      is_remote: data.is_remote,
-      easy_apply: data.easy_apply,
-      results_wanted: parseInt(data.results_wanted) || 25,
-      hours_old: data.hours_old ? parseInt(data.hours_old) : undefined,
-    };
+  // Auto-close dialog after scraping is completed
+  useEffect(() => {
+    if (scraping.status === "completed") {
+      const timer = setTimeout(() => setOpen(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [scraping.status]);
 
-    scraping.startScraping(params);
+  const onSubmit = (data) => {
+    try {
+      const params = {
+        keywords: data.keywords,
+        location: data.location || undefined,
+        job_contract: data.job_contract || undefined,
+        job_type: data.job_type || undefined,
+        easy_apply: data.easy_apply,
+        results_wanted: parseInt(data.results_wanted) || 25,
+        hours_old: data.hours_old ? parseInt(data.hours_old) : undefined,
+      };
+      scraping.startScraping(params);
+    } catch (error) {
+      console.error("Error searching jobs:", error);
+      toast.error("Failed to search jobs");
+    }
   };
 
   const handleClose = (isOpen) => {
@@ -144,17 +141,37 @@ export function SearchJobsDialog({ onSuccess }) {
           </div>
 
           <div className="space-y-2 w-full">
-            <Label>Job Type</Label>
+            <Label>Job Contract</Label>
             <Select
               onValueChange={(value) => setValue("job_contract", value)}
               defaultValue=""
               disabled={scraping.isActive}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select job type" />
+                <SelectValue placeholder="Select Job Contract" />
               </SelectTrigger>
               <SelectContent>
                 {JOB_CONTRACT.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 w-full">
+            <Label>Job Type</Label>
+            <Select
+              onValueChange={(value) => setValue("job_type", value)}
+              defaultValue=""
+              disabled={scraping.isActive}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Job Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {JOB_TYPE.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
                   </SelectItem>
@@ -196,29 +213,16 @@ export function SearchJobsDialog({ onSuccess }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_remote"
-                disabled={scraping.isActive}
-                onCheckedChange={(checked) => setValue("is_remote", checked)}
-              />
-              <Label htmlFor="is_remote" className="cursor-pointer">
-                Remote Only
-              </Label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="easy_apply"
-                disabled={scraping.isActive}
-                onCheckedChange={(checked) => setValue("easy_apply", checked)}
-              />
-              <Label htmlFor="easy_apply" className="cursor-pointer">
-                Easy Apply
-              </Label>
-            </div>
-          </div>
+          {/* <div className="flex items-center space-x-2 mt-6">
+            <Checkbox
+              id="easy_apply"
+              disabled={scraping.isActive}
+              onCheckedChange={(checked) => setValue("easy_apply", checked)}
+            />
+            <Label htmlFor="easy_apply" className="cursor-pointer">
+              Easy Apply
+            </Label>
+          </div> */}
 
           {/* Progress Display */}
           <ScrapingProgress

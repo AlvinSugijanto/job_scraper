@@ -1,1 +1,1 @@
--refactor job_contract logic -> bikin parse dari cards aja (cari dari semua elemen)
+-refactor job_contract logic -> bikin parse dari cards aja (cari dari semua elemen) (done)

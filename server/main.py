@@ -11,15 +11,17 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List
-from enum import Enum
+from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, asc, desc, func
+import re
 
 from scraper import search_jobs_async
 from database import engine, get_db, Base
 from models import Job as JobModel
 from websocket_manager import manager
+from schemas import StoredJobsResponse, WebSocketSearchRequest
+from helpers import save_jobs_to_db, get_existing_job_ids
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -40,106 +42,6 @@ app.add_middleware(
 )
 
 
-# ============ ENUMS & MODELS ============
-
-
-class JobType(str, Enum):
-    full_time = "full_time"
-    part_time = "part_time"
-    internship = "internship"
-    contract = "contract"
-    temporary = "temporary"
-
-
-class Job(BaseModel):
-    id: str
-    title: str
-    company: str
-    company_url: Optional[str] = None
-    location: str
-    salary: Optional[str] = None
-    date_posted: Optional[str] = None
-    job_url: str
-    description: Optional[str] = None
-    created_at: Optional[str] = None
-    job_type: Optional[str] = None
-    job_contract: Optional[str] = None
-
-
-class JobSearchResponse(BaseModel):
-    success: bool
-    count: int
-    new_jobs: int  # Jobs baru yang di-scrape
-    from_db: int  # Jobs yang sudah ada di database
-    jobs: List[Job]
-
-
-class StoredJobsResponse(BaseModel):
-    success: bool
-    count: int
-    total: int  # Total count for pagination
-    jobs: List[Job]
-
-
-class SearchRequest(BaseModel):
-    keywords: str
-    location: Optional[str] = ""
-    distance: Optional[int] = None
-    job_type: Optional[JobType] = None
-    is_remote: Optional[bool] = False
-    easy_apply: Optional[bool] = False
-    hours_old: Optional[int] = None
-    results_wanted: Optional[int] = 25
-
-
-# ============ HELPER FUNCTIONS ============
-
-
-def save_jobs_to_db(db: Session, jobs: list, keywords: str, job_contract: str = None):
-    """Simpan jobs ke database, skip yang sudah ada."""
-    from models import detect_job_type
-
-    saved_count = 0
-    for job_data in jobs:
-        existing = db.query(JobModel).filter(JobModel.id == job_data["id"]).first()
-        if not existing:
-            # Detect work arrangement (remote/hybrid/onsite) from text
-            combined_text = " ".join(
-                [
-                    job_data.get("description", "") or "",
-                    job_data.get("title", "") or "",
-                    job_data.get("location", "") or "",
-                ]
-            )
-            job_type = detect_job_type(combined_text)
-
-            db_job = JobModel(
-                id=job_data["id"],
-                title=job_data["title"],
-                company=job_data["company"],
-                company_url=job_data.get("company_url"),
-                location=job_data["location"],
-                salary=job_data.get("salary"),
-                date_posted=job_data.get("date_posted"),
-                job_url=job_data["job_url"],
-                description=job_data.get("description"),
-                job_type=job_type,
-                job_contract=job_contract,
-                search_keywords=keywords,
-                source=job_data.get("source"),
-            )
-            db.add(db_job)
-            saved_count += 1
-    db.commit()
-    return saved_count
-
-
-def get_existing_job_ids(db: Session) -> set:
-    """Ambil semua job IDs yang sudah ada di database."""
-    results = db.query(JobModel.id).all()
-    return {r[0] for r in results}
-
-
 # ============ ROUTES ============
 
 
@@ -151,57 +53,6 @@ def root():
         "message": "LinkedIn Job Scraper API",
         "docs": "/docs",
     }
-
-
-# NOTE: Endpoints below are unused - UI uses WebSocket (/ws/scrape) instead
-# @app.get("/jobs", response_model=JobSearchResponse)
-# def get_jobs(
-#     keywords: str = Query(..., description="Kata kunci pencarian (wajib)"),
-#     location: str = Query("", description="Lokasi pekerjaan"),
-#     distance: Optional[int] = Query(None, description="Radius pencarian (miles)"),
-#     job_type: Optional[JobType] = Query(None, description="Tipe pekerjaan"),
-#     is_remote: bool = Query(False, description="Hanya pekerjaan remote"),
-#     easy_apply: bool = Query(False, description="Hanya Easy Apply"),
-#     hours_old: Optional[int] = Query(None, description="Posted dalam X jam terakhir"),
-#     results_wanted: int = Query(25, ge=1, le=100, description="Jumlah hasil (max 100)"),
-#     db: Session = Depends(get_db),
-# ):
-#     try:
-#         existing_ids = get_existing_job_ids(db)
-#         jobs = search_jobs(
-#             keywords=keywords, location=location, distance=distance,
-#             job_type=job_type.value if job_type else None,
-#             is_remote=is_remote, easy_apply=easy_apply,
-#             hours_old=hours_old, results_wanted=results_wanted,
-#             existing_ids=existing_ids,
-#         )
-#         new_count = save_jobs_to_db(db, jobs, keywords)
-#         return JobSearchResponse(success=True, count=len(jobs), new_jobs=new_count,
-#                                  from_db=len(jobs) - new_count, jobs=jobs)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/jobs/search", response_model=JobSearchResponse)
-# def search_jobs_post(request: SearchRequest, db: Session = Depends(get_db)):
-#     try:
-#         existing_ids = get_existing_job_ids(db)
-#         jobs = search_jobs(
-#             keywords=request.keywords, location=request.location,
-#             distance=request.distance,
-#             job_type=request.job_type.value if request.job_type else None,
-#             is_remote=request.is_remote, easy_apply=request.easy_apply,
-#             hours_old=request.hours_old, results_wanted=request.results_wanted,
-#             existing_ids=existing_ids,
-#         )
-#         new_count = save_jobs_to_db(db, jobs, request.keywords)
-#         return JobSearchResponse(success=True, count=len(jobs), new_jobs=new_count,
-#                                  from_db=len(jobs) - new_count, jobs=jobs)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============ STORED JOBS ROUTES ============
 
 
 @app.get("/jobs/stored", response_model=StoredJobsResponse)
@@ -219,14 +70,9 @@ def get_stored_jobs(
     db: Session = Depends(get_db),
 ):
     """Ambil semua jobs yang tersimpan di database."""
-    from sqlalchemy import or_, asc, desc
-
     query = db.query(JobModel)
 
     if search:
-        import re
-        from sqlalchemy import func
-
         # Normalize search: remove special chars
         # e.g., "backend" should match "Back-end", "back end", "backend"
         normalized = re.sub(r"[-_\s]+", "", search.lower())
@@ -287,17 +133,6 @@ def get_stored_job(job_id: str, db: Session = Depends(get_db)):
 # ============ WEBSOCKET ROUTES ============
 
 
-class WebSocketSearchRequest(BaseModel):
-    keywords: str
-    location: Optional[str] = ""
-    distance: Optional[int] = None
-    job_contract: Optional[str] = None
-    is_remote: Optional[bool] = False
-    easy_apply: Optional[bool] = False
-    hours_old: Optional[int] = None
-    results_wanted: Optional[int] = 25
-
-
 @app.websocket("/ws/scrape/{client_id}")
 async def websocket_scrape(websocket: WebSocket, client_id: str):
     """
@@ -321,26 +156,23 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         # Get existing IDs
         existing_ids = get_existing_job_ids(db)
 
-        # Progress callback
-        async def on_progress(event_type: str, data: dict):
-            await manager.send_progress(client_id, {"type": event_type, **data})
-
         # Run async scraper with progress callback
         jobs = await search_jobs_async(
             keywords=request.keywords,
             location=request.location,
             distance=request.distance,
             job_contract=request.job_contract,
-            is_remote=request.is_remote,
+            job_type=request.job_type,
             easy_apply=request.easy_apply,
             hours_old=request.hours_old,
             results_wanted=request.results_wanted,
             existing_ids=existing_ids,
-            on_progress=on_progress,
+            manager=manager,
+            client_id=client_id,
         )
 
         # Save to database
-        new_count = save_jobs_to_db(db, jobs, request.keywords, request.job_contract)
+        new_count = save_jobs_to_db(db, jobs, request)
 
         # Notify: completed
         await manager.send_completed(client_id, len(jobs), new_count)

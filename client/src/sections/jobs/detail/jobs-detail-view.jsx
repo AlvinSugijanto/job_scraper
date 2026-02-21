@@ -157,8 +157,7 @@ export default function JobDetailView({ id }) {
             <div className="rounded-lg border border-dashed p-8 text-center">
               <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/50" />
               <p className="mt-2 text-muted-foreground">
-                No description available. Enable "Fetch Description" when
-                searching to get job descriptions.
+                Unfortunately, we cannot get the description for this job.
               </p>
             </div>
           )}
