@@ -43,14 +43,13 @@ export default function JobDetailView({ id }) {
         setJob(data.job);
       } catch (error) {
         toast.error("Failed to fetch job details");
-        router.push("/dashboard/jobs");
       } finally {
         setLoading(false);
       }
     };
 
     fetchJob();
-  }, [id, router]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -79,11 +78,11 @@ export default function JobDetailView({ id }) {
     <div className="space-y-6">
       {/* Back Button */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/jobs">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Jobs
-          </Link>
+        <Button variant="ghost" size="sm" onClick={() => router.back()}>
+          {/* <Link href="/dashboard/jobs"> */}
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Jobs
+          {/* </Link> */}
         </Button>
       </div>
 

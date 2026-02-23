@@ -44,11 +44,11 @@ export function JobDescription({ description }) {
 
   return (
     <div
-      className="job-description prose prose-sm dark:prose-invert max-w-none text-sm text-gray-800
+      className="job-description prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 leading-relaxed tracking-wide
         [&_ul]:list-disc [&_ul]:list-inside [&_ul]:my-2 [&_ul]:ml-2
         [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:my-2 [&_ol]:ml-2
-        [&_li]:text-muted-foreground [&_li]:mb-1
-        [&_p]:text-muted-foreground [&_p]:mb-2
+        [&_li]:mb-1
+        [&_p]:mb-2
         [&_strong]:text-foreground [&_strong]:font-semibold
         [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80
         [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2

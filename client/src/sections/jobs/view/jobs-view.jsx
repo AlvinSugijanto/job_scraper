@@ -19,35 +19,16 @@ import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { getStoredJobs } from "@/lib/jobs-api";
 import JobsTable from "./jobs-table";
 import { exportToCSV } from "@/utils/export-csv";
+import { useDebounce } from "@/utils/use-debounce";
+import { getSavedState, saveState } from "@/utils/use-local-storage";
 
 const PAGE_SIZE = 10;
 const STORAGE_KEY = "jobs_view_state";
 
-// Get saved state from localStorage
-const getSavedState = () => {
-  if (typeof window === "undefined") return null;
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
-  }
-};
-
-// Save state to localStorage
-const saveState = (state) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Ignore storage errors
-  }
-};
-
 export default function JobsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const savedState = getSavedState();
+  const savedState = getSavedState(STORAGE_KEY);
 
   // Priority: URL params > localStorage > defaults
   const [jobs, setJobs] = useState([]);
@@ -56,6 +37,7 @@ export default function JobsView() {
   const [search, setSearch] = useState(
     searchParams.get("q") || savedState?.search || "",
   );
+
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({
     key: searchParams.get("sortBy") || savedState?.sortBy || "created_at",
@@ -67,6 +49,8 @@ export default function JobsView() {
     parseInt(searchParams.get("page") || savedState?.page || "0", 10),
   );
   const [total, setTotal] = useState(0);
+
+  const debouncedSearch = useDebounce(search, 500);
 
   // Update URL params and localStorage
   const updateSearchParams = useCallback(
@@ -82,8 +66,8 @@ export default function JobsView() {
       router.replace(`?${params.toString()}`, { scroll: false });
 
       // Also save to localStorage
-      const currentState = getSavedState() || {};
-      saveState({
+      const currentState = getSavedState(STORAGE_KEY) || {};
+      saveState(STORAGE_KEY, {
         ...currentState,
         sortBy: updates.sortBy ?? currentState.sortBy,
         sortOrder: updates.sortOrder ?? currentState.sortOrder,
@@ -100,7 +84,7 @@ export default function JobsView() {
     setLoading(true);
     try {
       const data = await getStoredJobs({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         sortBy: sortConfig.key,
         sortOrder: sortConfig.direction,
         skip: currentPage * PAGE_SIZE,
@@ -115,19 +99,10 @@ export default function JobsView() {
     }
   };
 
-  // Refetch when page or sort changes
+  // Refetch when page, sort, or debounced search changes
   useEffect(() => {
     fetchJobs();
-  }, [page, sortConfig]);
-
-  // Debounced search — auto-trigger 500ms after user stops typing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchJobs(true);
-      updateSearchParams({ q: search || null, page: 0 });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
+  }, [page, sortConfig, debouncedSearch]);
 
   // Clear selection when jobs change
   useEffect(() => {
@@ -148,6 +123,12 @@ export default function JobsView() {
     updateSearchParams({ page: newPage });
   };
 
+  const handleSearchChange = (search) => {
+    console.log(search);
+    setSearch(search);
+    setPage(0);
+    updateSearchParams({ q: search, page: 0 });
+  };
   // Selection handlers
   const handleSelectPage = () => {
     setSelectedIds(new Set(jobs.map((job) => job.id)));
@@ -236,7 +217,7 @@ export default function JobsView() {
               <Input
                 placeholder="Search title, company, location..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-72"
               />
             </div>

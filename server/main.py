@@ -16,12 +16,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc, func
 import re
 
-from scraper import search_jobs_async
-from database import engine, get_db, Base
+from scraper import search_jobs_linkedin
+from core import engine, get_db, Base
 from models import Job as JobModel
-from websocket_manager import manager
+from core import manager
 from schemas import StoredJobsResponse, WebSocketSearchRequest
-from helpers import save_jobs_to_db, get_existing_job_ids
+from repositories import save_jobs_to_db, get_existing_job_ids
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -157,15 +157,8 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         existing_ids = get_existing_job_ids(db)
 
         # Run async scraper with progress callback
-        jobs = await search_jobs_async(
-            keywords=request.keywords,
-            location=request.location,
-            distance=request.distance,
-            job_contract=request.job_contract,
-            job_type=request.job_type,
-            easy_apply=request.easy_apply,
-            hours_old=request.hours_old,
-            results_wanted=request.results_wanted,
+        jobs = await search_jobs_linkedin(
+            request=request,
             existing_ids=existing_ids,
             manager=manager,
             client_id=client_id,
