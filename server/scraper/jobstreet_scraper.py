@@ -52,7 +52,7 @@ DATE_RANGE_MAP = {
 # ============ MAIN FUNCTIONS ============
 
 
-async def search_jobs_async(
+async def search_jobs_jobstreet(
     keywords: str,
     location: str = "",
     job_type: str = None,
