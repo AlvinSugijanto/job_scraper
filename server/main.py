@@ -60,6 +60,9 @@ def get_stored_jobs(
     search: Optional[str] = Query(
         None, description="Search in title, company, location"
     ),
+    job_type: Optional[str] = Query(None, description="Filter by job type"),
+    job_contract: Optional[str] = Query(None, description="Filter by job contract"),
+    location: Optional[str] = Query(None, description="Filter by location"),
     sort_by: Optional[str] = Query(
         "created_at",
         description="Sort by field: title, company, location, salary, date_posted, created_at",
@@ -92,6 +95,15 @@ def get_stored_jobs(
             ).ilike(f"%{normalized}%"),
         )
         query = query.filter(search_filter)
+
+    if job_type:
+        query = query.filter(JobModel.job_type == job_type)
+
+    if job_contract:
+        query = query.filter(JobModel.job_contract == job_contract)
+
+    if location:
+        query = query.filter(JobModel.location.ilike(f"%{location}%"))
 
     # Get total count before pagination
     total = query.count()

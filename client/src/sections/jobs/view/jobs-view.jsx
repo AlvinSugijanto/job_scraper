@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Briefcase, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Briefcase, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -13,85 +12,69 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { getStoredJobs } from "@/lib/jobs-api";
 import JobsTable from "./jobs-table";
+import { JobsFilters } from "./jobs-filters";
 import { exportToCSV } from "@/utils/export-csv";
-import { useDebounce } from "@/utils/use-debounce";
-import { getSavedState, saveState } from "@/utils/use-local-storage";
+import { useFilters } from "@/hooks/use-filters";
+import { usePagination } from "@/hooks/use-pagination";
 
 const PAGE_SIZE = 10;
-const STORAGE_KEY = "jobs_view_state";
 
 export default function JobsView() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const savedState = getSavedState(STORAGE_KEY);
+  const {
+    page,
+    total,
+    setTotal,
+    handlePageChange,
+    resetPage,
+    totalPages,
+    startItem,
+    endItem,
+    hasPrevious,
+    hasNext,
+  } = usePagination({ pageSize: PAGE_SIZE });
 
-  // Priority: URL params > localStorage > defaults
+  const { filters, setFilters, handleSort } = useFilters({
+    initialFilters: {
+      q: "",
+      job_type: "all",
+      job_contract: "all",
+      location: "",
+      sortBy: "created_at",
+      sortOrder: "desc",
+    },
+    resetPage,
+  });
+
+  const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
+
   const [jobs, setJobs] = useState([]);
   const [allJobs, setAllJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(
-    searchParams.get("q") || savedState?.search || "",
-  );
-
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [sortConfig, setSortConfig] = useState({
-    key: searchParams.get("sortBy") || savedState?.sortBy || "created_at",
-    direction: searchParams.get("sortOrder") || savedState?.sortOrder || "desc",
-  });
 
-  // Pagination
-  const [page, setPage] = useState(
-    parseInt(searchParams.get("page") || savedState?.page || "0", 10),
-  );
-  const [total, setTotal] = useState(0);
-
-  const debouncedSearch = useDebounce(search, 500);
-
-  // Update URL params and localStorage
-  const updateSearchParams = useCallback(
-    (updates) => {
-      const params = new URLSearchParams(searchParams.toString());
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value === null || value === undefined || value === "") {
-          params.delete(key);
-        } else {
-          params.set(key, value.toString());
-        }
-      });
-      router.replace(`?${params.toString()}`, { scroll: false });
-
-      // Also save to localStorage
-      const currentState = getSavedState(STORAGE_KEY) || {};
-      saveState(STORAGE_KEY, {
-        ...currentState,
-        sortBy: updates.sortBy ?? currentState.sortBy,
-        sortOrder: updates.sortOrder ?? currentState.sortOrder,
-        page: updates.page ?? currentState.page,
-        search: updates.q !== undefined ? updates.q : currentState.search,
-      });
-    },
-    [router, searchParams],
-  );
-
-  const fetchJobs = async (resetPage = false) => {
-    const currentPage = resetPage ? 0 : page;
-    if (resetPage) setPage(0);
+  const fetchJobs = async (shouldResetPage = false) => {
+    const currentPage = shouldResetPage ? 0 : page;
+    if (shouldResetPage) resetPage();
     setLoading(true);
     try {
-      const data = await getStoredJobs({
-        search: debouncedSearch || undefined,
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction,
+      const { jobs, total } = await getStoredJobs({
+        search: filters.q || undefined,
+        jobType: filters.job_type === "all" ? undefined : filters.job_type,
+        jobContract:
+          filters.job_contract === "all" ? undefined : filters.job_contract,
+        location: filters.location || undefined,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
         skip: currentPage * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
-      setJobs(data.jobs);
-      setTotal(data.total);
+
+      setJobs(jobs);
+      setTotal(total);
     } catch (error) {
       toast.error("Failed to fetch jobs");
     } finally {
@@ -99,10 +82,10 @@ export default function JobsView() {
     }
   };
 
-  // Refetch when page, sort, or debounced search changes
+  // Refetch when page or filters change
   useEffect(() => {
     fetchJobs();
-  }, [page, sortConfig, debouncedSearch]);
+  }, [page, filters]);
 
   // Clear selection when jobs change
   useEffect(() => {
@@ -110,25 +93,6 @@ export default function JobsView() {
     setAllJobs([]);
   }, [jobs]);
 
-  const handleSort = (key) => {
-    const newDirection =
-      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
-    setSortConfig({ key, direction: newDirection });
-    setPage(0);
-    updateSearchParams({ sortBy: key, sortOrder: newDirection, page: 0 });
-  };
-
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    updateSearchParams({ page: newPage });
-  };
-
-  const handleSearchChange = (search) => {
-    console.log(search);
-    setSearch(search);
-    setPage(0);
-    updateSearchParams({ q: search, page: 0 });
-  };
   // Selection handlers
   const handleSelectPage = () => {
     setSelectedIds(new Set(jobs.map((job) => job.id)));
@@ -137,7 +101,7 @@ export default function JobsView() {
   const handleSelectAll = async () => {
     try {
       const data = await getStoredJobs({
-        search: search || undefined,
+        search: filters.q || undefined,
         limit: 10000,
       });
       setSelectedIds(new Set(data.jobs.map((job) => job.id)));
@@ -178,10 +142,6 @@ export default function JobsView() {
     toast.success(`Exported ${jobsToExport.length} jobs to CSV`);
   };
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const startItem = page * PAGE_SIZE + 1;
-  const endItem = Math.min((page + 1) * PAGE_SIZE, total);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -214,12 +174,7 @@ export default function JobsView() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search title, company, location..."
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-72"
-              />
+              <JobsFilters filters={filters} onFiltersChange={setFilters} />
             </div>
           </div>
         </CardHeader>
@@ -235,56 +190,30 @@ export default function JobsView() {
               <Briefcase className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-semibold">No jobs found</h3>
               <p className="text-muted-foreground">
-                {search
+                {filters.q
                   ? "Try a different search term"
                   : 'Click "Search Jobs" to scrape new jobs from LinkedIn'}
               </p>
             </div>
           ) : (
-            <>
-              <JobsTable
-                jobs={jobs}
-                total={total}
-                selectedIds={selectedIds}
-                sortConfig={sortConfig}
-                onSort={handleSort}
-                onSelectPage={handleSelectPage}
-                onSelectAll={handleSelectAll}
-                onClearSelection={handleClearSelection}
-                onSelectOne={handleSelectOne}
-              />
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-2 py-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {startItem}-{endItem} of {total} jobs
-                  {selectedIds.size > 0 && ` • ${selectedIds.size} selected`}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(Math.max(0, page - 1))}
-                    disabled={page === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {page + 1} of {totalPages || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= totalPages - 1}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            </>
+            <JobsTable
+              jobs={jobs}
+              total={total}
+              selectedIds={selectedIds}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              onSelectPage={handleSelectPage}
+              onSelectAll={handleSelectAll}
+              onClearSelection={handleClearSelection}
+              onSelectOne={handleSelectOne}
+              page={page}
+              totalPages={totalPages}
+              startItem={startItem}
+              endItem={endItem}
+              hasPrevious={hasPrevious}
+              hasNext={hasNext}
+              onPageChange={handlePageChange}
+            />
           )}
         </CardContent>
       </Card>

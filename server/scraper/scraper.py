@@ -108,7 +108,7 @@ async def search_jobs_linkedin(
 
             if response.status_code == 429:
                 # Rate limited - notify client
-                wait_seconds = 60
+                wait_seconds = 30
                 if manager:
                     await manager.send_rate_limit(client_id, wait_seconds)
                 await asyncio.sleep(wait_seconds)
@@ -135,7 +135,16 @@ async def search_jobs_linkedin(
             job = parse_job_card(card, session)
             if job and job["id"] not in seen_ids:
                 seen_ids.add(job["id"])
-                jobs.append(job)
+                combined_text = " ".join(
+                    [
+                        job["description"] or "",
+                        job["title"] or "",
+                        job["location"] or "",
+                    ]
+                )
+                accuracy = check_accuracy(combined_text, request)
+                if accuracy:
+                    jobs.append(job)
 
                 if len(jobs) >= request.results_wanted:
                     break
@@ -247,8 +256,35 @@ def get_job_description(session, job_id):
         return {"description": None}
 
 
-def check_accuracy():
-    return None
+def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
+    """
+    Check if the detected job_contract / job_type from the combined_text
+    matches what was requested.
+
+    Args:
+        combined_text: Concatenated description + title + location string.
+        request:       The original search request (has .job_contract and .job_type).
+
+    Returns:
+        {
+            "passed": bool,           # True if all requested filters match
+            "reasons": [str, ...]     # List of mismatch messages (empty when passed)
+        }
+    """
+
+    # Check job_contract accuracy
+    if request.job_contract:
+        detected_contract = JobContractType.detect(combined_text)
+        if detected_contract.value != request.job_contract:
+            return False
+
+    # Check job_type accuracy
+    if request.job_type:
+        detected_type = JobType.detect(combined_text)
+        if detected_type.value != request.job_type:
+            return False
+
+    return True
 
 
 # def search_jobs(

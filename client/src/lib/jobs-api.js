@@ -16,6 +16,9 @@ export async function searchJobs(params) {
 
 export async function getStoredJobs({
   search,
+  jobType,
+  jobContract,
+  location,
   sortBy,
   sortOrder,
   skip = 0,
@@ -23,6 +26,9 @@ export async function getStoredJobs({
 } = {}) {
   const params = new URLSearchParams();
   if (search) params.append("search", search);
+  if (jobType) params.append("job_type", jobType);
+  if (jobContract) params.append("job_contract", jobContract);
+  if (location) params.append("location", location);
   if (sortBy) params.append("sort_by", sortBy);
   if (sortOrder) params.append("sort_order", sortOrder);
   params.append("skip", skip.toString());
