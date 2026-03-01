@@ -10,7 +10,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: SeekSans, "SeekSans Fallback", Arial, Tahoma, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -154,6 +154,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: SeekSans, "SeekSans Fallback", Arial, Tahoma, sans-serif;
   }
 
   /* ✅ Button defaults */
@@ -203,4 +204,20 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* Job description scoped styles */
+.job-description ul,
+.job-description ol {
+  padding-left: 1.25rem;
+}
+
+.job-description li {
+  display: list-item;
+  list-style-position: outside;
+}
+
+.job-description li > p {
+  display: inline;
+  margin: 0;
 }

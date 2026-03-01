@@ -179,7 +179,7 @@ export default function JobsTable({
                 </TableCell>
                 <TableCell onClick={() => handleRowClick(job.id)}>
                   {job.salary ? (
-                    <Badge variant="secondary">{job.salary}</Badge>
+                    <Badge variant="default">{job.salary}</Badge>
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}

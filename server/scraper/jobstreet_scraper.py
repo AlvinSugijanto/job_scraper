@@ -2,16 +2,16 @@
 JobStreet Job Scraper - Core Functions
 """
 
+from schemas import WebSocketSearchRequest, JobContractType, JobType
+from core import ConnectionManager
 import requests
-import time
 import random
 import asyncio
 import json
-import re
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urljoin
-from typing import Callable, Optional
+import re
 
 
 # ============ CONFIG ============
@@ -25,7 +25,7 @@ HEADERS = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
 
-JOB_TYPE_CODES = {
+JOB_CONTRACT_CODES = {
     "full_time": "242",
     "part_time": "243",
     "contract": "244",
@@ -33,11 +33,10 @@ JOB_TYPE_CODES = {
     "internship": "245",
 }
 
-WORK_TYPE_MAP = {
-    "hybrid": "hybrid",
-    "on-site": "onsite",
-    "remote": "remote",
-    "work from home": "remote",
+JOB_TYPE_CODES = {
+    "onsite": "1",
+    "hybrid": "2",
+    "remote": "3",
 }
 
 DATE_RANGE_MAP = {
@@ -53,17 +52,13 @@ DATE_RANGE_MAP = {
 
 
 async def search_jobs_jobstreet(
-    keywords: str,
-    location: str = "",
-    job_type: str = None,
-    is_remote: bool = False,
-    hours_old: int = None,
-    results_wanted: int = 25,
+    request: WebSocketSearchRequest,
     existing_ids: set = None,
-    on_progress: Optional[Callable] = None,
+    manager: ConnectionManager = None,
+    client_id: str = "",
 ):
     """
-    Async version of search_jobs with progress callback support.
+    Async search for JobStreet jobs with progress callback support.
 
     Args:
         on_progress: Async callback function(event_type, data)
@@ -76,30 +71,26 @@ async def search_jobs_jobstreet(
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    while len(jobs) < results_wanted and page <= 20:
+    while len(jobs) < request.results_wanted and page <= 20:
         # Notify: fetching page
-        if on_progress:
-            await on_progress("fetching_page", {"page": page, "jobs_found": len(jobs)})
+        if manager:
+            await manager.send_fetching_page(client_id, page, len(jobs))
 
         # Build URL
-        keyword_slug = keywords.lower().replace(" ", "-")
+        keyword_slug = request.keywords.lower().replace(" ", "-")
         url = f"{BASE_URL}/id/{quote_plus(keyword_slug)}-jobs"
-
-        if location:
-            loc_slug = location.replace(" ", "-")
-            url += f"/in-{quote_plus(loc_slug)}"
 
         # Build params
         params = {"page": page}
 
-        if job_type and job_type in JOB_TYPE_CODES:
-            params["worktype"] = JOB_TYPE_CODES[job_type]
+        if request.job_contract and request.job_contract in JOB_CONTRACT_CODES:
+            params["worktype"] = JOB_CONTRACT_CODES[request.job_contract]
 
-        if is_remote:
-            params["workarrangement"] = "remote"
+        if request.job_type and request.job_type in JOB_TYPE_CODES:
+            params["workarrangement"] = JOB_TYPE_CODES[request.job_type]
 
-        if hours_old:
-            days = hours_old / 24
+        if request.hours_old:
+            days = request.hours_old / 24
             for threshold, code in sorted(DATE_RANGE_MAP.items()):
                 if days <= threshold:
                     params["daterange"] = code
@@ -108,11 +99,12 @@ async def search_jobs_jobstreet(
         # Make request
         try:
             response = session.get(url, params=params, timeout=15)
+            print(response.url)
 
             if response.status_code == 429:
                 wait_seconds = 60
-                if on_progress:
-                    await on_progress("rate_limit", {"wait_seconds": wait_seconds})
+                if manager:
+                    await manager.send_rate_limit(client_id, wait_seconds)
                 await asyncio.sleep(wait_seconds)
                 continue
 
@@ -122,7 +114,7 @@ async def search_jobs_jobstreet(
         except Exception:
             break
 
-        # Parse HTML
+        # Parse HTML → extract job listings from __NEXT_DATA__
         soup = BeautifulSoup(response.text, "html.parser")
         job_cards = _extract_job_listings(soup)
 
@@ -131,199 +123,58 @@ async def search_jobs_jobstreet(
 
         # Extract jobs from cards
         for i, card in enumerate(job_cards):
-            if on_progress:
-                await on_progress(
-                    "parsing", {"current": i + 1, "total": len(job_cards)}
-                )
+            if manager:
+                await manager.send_parsing(client_id, i + 1, len(job_cards))
 
             job = parse_job_card(card, session)
             if job and job["id"] not in seen_ids:
                 seen_ids.add(job["id"])
-                jobs.append(job)
+                combined_text = " ".join(
+                    [
+                        job["description"] or "",
+                        job["title"] or "",
+                        job["location"] or "",
+                    ]
+                )
+                if check_accuracy(combined_text, request):
+                    jobs.append(job)
 
-                if len(jobs) >= results_wanted:
+                if len(jobs) >= request.results_wanted:
                     break
 
         # Delay before next page
         page += 1
-        if len(jobs) < results_wanted:
+        if len(jobs) < request.results_wanted:
             delay = random.uniform(2, 5)
             await asyncio.sleep(delay)
 
     return jobs
 
 
-def search_jobs(
-    keywords: str,
-    location: str = "",
-    job_type: str = None,
-    is_remote: bool = False,
-    hours_old: int = None,
-    results_wanted: int = 25,
-    existing_ids: set = None,
-):
-    """
-    Search JobStreet jobs with given parameters (sync version).
-
-    Args:
-        keywords: Search keywords (e.g., "python developer")
-        location: Location to search (e.g., "Jakarta")
-        job_type: One of: full_time, part_time, internship, contract, temporary
-        is_remote: Filter remote jobs only
-        hours_old: Filter jobs posted within X hours
-        results_wanted: Number of results to fetch (max ~20 pages)
-        existing_ids: Set of job IDs to skip (already in database)
-
-    Returns:
-        List of job dictionaries
-    """
-    jobs = []
-    seen_ids = existing_ids.copy() if existing_ids else set()
-    page = 1
-
-    session = requests.Session()
-    session.headers.update(HEADERS)
-
-    while len(jobs) < results_wanted and page <= 20:
-        # Build URL
-        keyword_slug = keywords.lower().replace(" ", "-")
-        url = f"{BASE_URL}/id/{quote_plus(keyword_slug)}-jobs"
-
-        if location:
-            loc_slug = location.replace(" ", "-")
-            url += f"/in-{quote_plus(loc_slug)}"
-
-        # Build params
-        params = {"page": page}
-
-        if job_type and job_type in JOB_TYPE_CODES:
-            params["worktype"] = JOB_TYPE_CODES[job_type]
-
-        if is_remote:
-            params["workarrangement"] = "remote"
-
-        if hours_old:
-            days = hours_old / 24
-            for threshold, code in sorted(DATE_RANGE_MAP.items()):
-                if days <= threshold:
-                    params["daterange"] = code
-                    break
-
-        # Make request
-        try:
-            response = session.get(url, params=params, timeout=15)
-            print(f"URL: {response.url}")
-
-            if response.status_code == 429:
-                time.sleep(60)
-                continue
-
-            if response.status_code != 200:
-                break
-
-        except Exception:
-            break
-
-        # Parse HTML
-        soup = BeautifulSoup(response.text, "html.parser")
-        job_cards = _extract_job_listings(soup)
-
-        if not job_cards:
-            break
-
-        # Extract jobs from cards
-        for card in job_cards:
-            job = parse_job_card(card, session)
-            if job and job["id"] not in seen_ids:
-                seen_ids.add(job["id"])
-                jobs.append(job)
-
-                if len(jobs) >= results_wanted:
-                    break
-
-        # Delay before next page
-        page += 1
-        if len(jobs) < results_wanted:
-            delay = random.uniform(2, 5)
-            time.sleep(delay)
-
-    return jobs
-
-
 def parse_job_card(job_data, session=None):
-    """Parse a single job card into standardized dict."""
+    """Enrich a job card dict with description, job_type, and job_contract."""
     try:
-        # Job ID
-        job_id = str(
-            job_data.get("id")
-            or job_data.get("jobId")
-            or job_data.get("listingId")
-            or ""
-        )
-        if not job_id:
+        if not job_data.get("id") or not job_data.get("job_url"):
             return None
 
-        prefixed_id = f"jobstreet_{job_id}"
+        job = dict(job_data)
 
-        # Title
-        title = job_data.get("title") or job_data.get("jobTitle") or "N/A"
-
-        # Company
-        company_name = "N/A"
-        company_url = ""
-        advertiser = job_data.get("advertiser", {}) or {}
-        if advertiser:
-            company_name = advertiser.get("description", "N/A")
-            company_id = advertiser.get("id", "")
-            if company_id:
-                company_url = f"{BASE_URL}/en/companies/{company_id}"
-        if company_name == "N/A":
-            company_name = job_data.get("companyName", "N/A")
-            company_meta = job_data.get("companyMeta", {}) or {}
-            if company_meta.get("id"):
-                company_url = f"{BASE_URL}/en/companies/{company_meta['id']}"
-
-        # Location
-        location = _extract_location(job_data)
-
-        # Salary
-        salary = _extract_salary(job_data)
-
-        # Date posted
-        date_posted = _extract_date(job_data)
-
-        # Job URL
-        job_url = ""
-        if job_data.get("jobUrl"):
-            job_url = urljoin(BASE_URL, job_data["jobUrl"])
-        elif job_data.get("job_url"):
-            job_url = job_data["job_url"]
-        else:
-            job_url = f"{BASE_URL}/en/job/{job_id}"
-
-        # Work type
-        work_type = _extract_work_arrangement(job_data)
-
-        job = {
-            "id": prefixed_id,
-            "title": title,
-            "company": company_name,
-            "company_url": company_url,
-            "location": location,
-            "salary": salary,
-            "date_posted": date_posted,
-            "job_url": job_url,
-            "description": None,
-            "work_type": work_type,
-            "source": "jobstreet",
-        }
-
-        # Fetch full description if session provided
+        # Fetch full description
         if session:
-            job_details = get_job_description(session, job_url)
-            job["description"] = job_details["description"]
-            if not work_type and job_details.get("work_type"):
-                job["work_type"] = job_details["work_type"]
+            job["description"] = get_job_description(session, job["job_url"])
+
+        combined_text = " ".join(
+            [
+                job.get("description") or "",
+                job.get("title") or "",
+                job.get("location") or "",
+            ]
+        )
+
+        job["job_contract"] = JobContractType.detect(combined_text)
+        job["job_type"] = JobType.detect(combined_text)
+        print("job contract : ", job["job_contract"])
+        print("job type : ", job["job_type"])
 
         return job
 
@@ -332,16 +183,13 @@ def parse_job_card(job_data, session=None):
 
 
 def get_job_description(session, job_url):
-    """Fetch full job description and work type from job detail page."""
+    """Fetch full job description from job detail page."""
     try:
         response = session.get(job_url, timeout=10)
         if response.status_code != 200:
-            return {"description": None, "work_type": None}
+            return None
 
         soup = BeautifulSoup(response.text, "html.parser")
-
-        description = None
-        work_type = None
 
         # Strategy 1: Extract from __NEXT_DATA__
         next_data_script = soup.find(
@@ -351,277 +199,139 @@ def get_job_description(session, job_url):
             try:
                 data = json.loads(next_data_script.string)
                 page_props = data.get("props", {}).get("pageProps", {})
-
                 job_detail = (
                     page_props.get("jobDetail", {})
                     or page_props.get("job", {})
                     or page_props
                 )
-
-                # Description
                 desc = (
                     job_detail.get("description", "")
                     or job_detail.get("jobAdDetails", {}).get("description", "")
                     or job_detail.get("content", "")
                 )
                 if desc:
-                    description = desc
-
-                # Work arrangement
-                work_type = _extract_work_arrangement(job_detail)
-
+                    return desc
             except Exception:
                 pass
 
         # Strategy 2: Parse description from HTML
-        if not description:
-            desc_div = soup.find("div", attrs={"data-automation": "jobAdDetails"})
-            if not desc_div:
-                desc_div = soup.find(
-                    "div", class_=lambda x: x and "job-description" in x.lower()
-                )
-            if not desc_div:
-                desc_div = soup.find("div", attrs={"data-automation": "jobDescription"})
+        desc_div = soup.find("div", attrs={"data-automation": "jobAdDetails"})
+        if not desc_div:
+            desc_div = soup.find(
+                "div", class_=lambda x: x and "job-description" in x.lower()
+            )
+        if desc_div:
+            return str(desc_div)
 
-            if desc_div:
-                description = str(desc_div)
-
-        return {"description": description, "work_type": work_type}
+        return None
 
     except Exception:
-        return {"description": None, "work_type": None}
+        return None
+
+
+def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
+    """
+    Check if the detected job_contract / job_type from the combined_text
+    matches what was requested.
+    """
+    if request.job_contract:
+        detected_contract = JobContractType.detect(combined_text)
+        if detected_contract.value != request.job_contract:
+            return False
+
+    if request.job_type:
+        detected_type = JobType.detect(combined_text)
+        if detected_type.value != request.job_type:
+            return False
+
+    return True
 
 
 # ============ HELPER FUNCTIONS ============
 
 
 def _extract_job_listings(soup):
-    """Extract job listings from parsed HTML (JSON or HTML cards)."""
-    # Try __NEXT_DATA__ JSON first
-    next_data_script = soup.find("script", id="__NEXT_DATA__", type="application/json")
-    if next_data_script:
-        try:
-            data = json.loads(next_data_script.string)
-            page_props = data.get("props", {}).get("pageProps", {})
-
-            search_data = (
-                page_props.get("search", {})
-                or page_props.get("searchResults", {})
-                or page_props
-            )
-            job_listings = search_data.get("data", []) or search_data.get("jobs", [])
-
-            if isinstance(job_listings, dict) and "data" in job_listings:
-                job_listings = job_listings["data"]
-
-            if job_listings:
-                return job_listings
-        except:
-            pass
-
-    # Fallback: parse HTML cards directly
-    return _parse_html_cards(soup)
-
-
-def _parse_html_cards(soup):
-    """Parse job cards directly from HTML as fallback method."""
+    """Extract job listings from parsed HTML cards."""
     from utils.dumps_to_json import dump_to_json
 
-    try:
-        job_listings = []
+    cards = soup.find_all("article", attrs={"data-automation": "normalJob"})
+    if not cards:
+        print("[DEBUG] No job cards found in HTML")
+        return []
 
-        # Find job card elements
-        cards = soup.find_all("article", attrs={"data-automation": "normalJob"})
-        if not cards:
-            cards = soup.find_all("div", attrs={"data-automation": "normalJob"})
-        if not cards:
-            cards = soup.find_all("article", attrs={"data-card-type": "JobCard"})
+    job_listings = []
+    for card in cards:
+        job = _parse_html_card(card)
+        if job:
+            job_listings.append(job)
 
-        for card in cards:
-            job = {}
-
-            # Title & URL
-            title_el = card.find("a", attrs={"data-automation": "jobTitle"})
-            if not title_el:
-                title_el = card.find("h3") or card.find("h2")
-
-            if title_el:
-                job["title"] = title_el.get_text(strip=True)
-                href = title_el.get("href", "")
-                if href:
-                    job["job_url"] = urljoin(BASE_URL, href)
-                    id_match = re.search(r"/job/(\d+)", href) or re.search(
-                        r"-(\d+)$", href
-                    )
-                    if id_match:
-                        job["id"] = f"jobstreet_{id_match.group(1)}"
-
-            # Company
-            company_el = card.find(
-                "a", attrs={"data-automation": "jobCompany"}
-            ) or card.find("span", attrs={"data-automation": "jobCompany"})
-            if company_el:
-                job["company"] = company_el.get_text(strip=True)
-
-            # Location
-            location_el = card.find(
-                "a", attrs={"data-automation": "jobLocation"}
-            ) or card.find("span", attrs={"data-automation": "jobLocation"})
-            if location_el:
-                job["location"] = location_el.get_text(strip=True)
-
-            # Salary
-            salary_el = card.find("span", attrs={"data-automation": "jobSalary"})
-            if salary_el:
-                job["salary"] = salary_el.get_text(strip=True)
-
-            # Date
-            date_el = card.find("time") or card.find(
-                "span", attrs={"data-automation": "jobListingDate"}
-            )
-            if date_el:
-                job["date_posted"] = _parse_relative_date(date_el.get_text(strip=True))
-
-            # Work type from card text
-            job["work_type"] = _extract_work_type_from_text(card)
-
-            if job.get("title") and job.get("id"):
-                job_listings.append(job)
-
-        # Dump results to JSON for debugging
+    if job_listings:
         dump_to_json(job_listings)
 
-        return job_listings
+    return job_listings
 
+
+def _parse_html_card(card):
+    """Parse a single job card HTML element into a dict."""
+    try:
+        # Job ID
+        job_id = card.get("data-job-id", "")
+        if not job_id:
+            return None
+
+        # Title & URL
+        title_el = card.find("a", attrs={"data-automation": "jobTitle"})
+        if not title_el:
+            return None
+        title = title_el.get_text(strip=True)
+        href = title_el.get("href", "")
+        job_url = (
+            urljoin(BASE_URL, href.split("?")[0])
+            if href
+            else f"{BASE_URL}/en/job/{job_id}"
+        )
+
+        # Company
+        company_el = card.find("a", attrs={"data-automation": "jobCompany"})
+        company = company_el.get_text(strip=True) if company_el else "N/A"
+
+        # Location
+        loc_els = card.find_all("span", attrs={"data-automation": "jobLocation"})
+        location = (
+            ", ".join(el.get_text(strip=True) for el in loc_els)
+            if loc_els
+            else "Indonesia"
+        )
+
+        # Salary
+        salary_el = card.find("span", attrs={"data-automation": "jobSalary"})
+        salary = salary_el.get_text(strip=True) if salary_el else None
+
+        # Date
+        date_el = card.find("span", attrs={"data-automation": "jobListingDate"})
+        date_posted = (
+            _parse_relative_date(date_el.get_text(strip=True)) if date_el else None
+        )
+
+        return {
+            "id": f"jobstreet_{job_id}",
+            "title": title,
+            "company": company,
+            "company_url": "",
+            "location": location,
+            "salary": salary,
+            "date_posted": date_posted,
+            "job_url": job_url,
+            "description": None,
+            "job_type": None,
+            "job_contract": None,
+            "source": "jobstreet",
+        }
     except Exception:
         return None
 
 
-def _extract_location(job_data):
-    """Extract location from job data with fallbacks."""
-    location_data = job_data.get("jobLocation", {}) or {}
-    if isinstance(location_data, dict):
-        location = location_data.get("label", "") or location_data.get(
-            "countryCode", ""
-        )
-    elif isinstance(location_data, str):
-        location = location_data
-    else:
-        location = ""
-
-    if not location:
-        loc = job_data.get("location", "")
-        if isinstance(loc, str):
-            location = loc
-        elif isinstance(loc, dict):
-            location = loc.get("label", loc.get("name", ""))
-
-    if not location:
-        parts = [job_data.get("suburb", ""), job_data.get("area", "")]
-        location = ", ".join(p for p in parts if p)
-
-    return location or "Indonesia"
-
-
-def _extract_salary(job_data):
-    """Extract salary info from job data."""
-    salary_data = job_data.get("salary")
-    if not salary_data:
-        return job_data.get("salaryLabel") or None
-
-    if isinstance(salary_data, str):
-        return salary_data
-
-    if isinstance(salary_data, dict):
-        label = salary_data.get("label", "")
-        if label:
-            return label
-
-        min_sal = salary_data.get("min") or salary_data.get("minimum")
-        max_sal = salary_data.get("max") or salary_data.get("maximum")
-        currency = salary_data.get("currency", "IDR")
-
-        if min_sal and max_sal:
-            return f"{currency} {min_sal:,} - {max_sal:,}"
-        elif min_sal:
-            return f"{currency} {min_sal:,}+"
-        elif max_sal:
-            return f"{currency} up to {max_sal:,}"
-
-    return None
-
-
-def _extract_date(job_data):
-    """Extract date posted from job data."""
-    listing_date = (
-        job_data.get("listingDate")
-        or job_data.get("postedAt")
-        or job_data.get("createdAt")
-    )
-    if listing_date:
-        try:
-            if "T" in str(listing_date):
-                dt = datetime.fromisoformat(listing_date.replace("Z", "+00:00"))
-                return dt.strftime("%Y-%m-%d")
-            elif re.match(r"\d{4}-\d{2}-\d{2}", str(listing_date)):
-                return str(listing_date)[:10]
-        except Exception:
-            pass
-
-    # Try relative display (e.g., "2d ago")
-    display_date = job_data.get("listingDateDisplay", "")
-    return _parse_relative_date(display_date)
-
-
-def _extract_work_arrangement(job_data):
-    """Extract work type/arrangement from job data."""
-    work_arrangements = job_data.get("workArrangements", {}) or {}
-    if work_arrangements:
-        wa_data = work_arrangements.get("data", []) or []
-        for wa in wa_data:
-            label = wa.get("label", "") if isinstance(wa, dict) else str(wa)
-            for key, val in WORK_TYPE_MAP.items():
-                if key in label.lower():
-                    return val
-
-    # Fallback: check workType field
-    work_type_raw = job_data.get("workType", "")
-    if isinstance(work_type_raw, str):
-        wt_lower = work_type_raw.lower()
-        if "remote" in wt_lower:
-            return "remote"
-        elif "hybrid" in wt_lower:
-            return "hybrid"
-
-    return None
-
-
-def _extract_work_type_from_text(card):
-    """Extract work type from card text content (HTML fallback)."""
-    text = card.get_text(separator=" | ", strip=True).lower()
-
-    # Check arrangement first (higher priority)
-    if "remote" in text:
-        return "remote"
-    if "hybrid" in text:
-        return "hybrid"
-    if "di tempat" in text or "on-site" in text:
-        return "onsite"
-
-    # Check job type
-    if "magang" in text or "internship" in text:
-        return "internship"
-    if "kontrak" in text or "contract" in text:
-        return "contract"
-    if "paruh waktu" in text or "part time" in text:
-        return "part_time"
-    if "penuh waktu" in text or "full time" in text:
-        return "full_time"
-
-    return None
-
-
-def _parse_relative_date(display_text: str) -> Optional[str]:
+def _parse_relative_date(display_text: str):
     """Parse relative date string like '2d ago', '1h ago' to YYYY-MM-DD."""
     if not display_text:
         return None
@@ -656,25 +366,18 @@ if __name__ == "__main__":
     print("JOBSTREET JOB SCRAPER - TEST MODE")
     print("=" * 60)
 
-    # Hardcoded test params
-    keyword = "frontend developer"
-    location = ""
-    max_results = 5
-    hours_old = 720
-    job_type = "full_time"
-    is_remote = False
-
-    # this produces :
-    # https://id.jobstreet.com/id/frontend-developer-jobs/in-Jakarta-Selatan/full-time?daterange=31
-
-    jobs = search_jobs(
-        keywords=keyword,
-        location=location,
-        results_wanted=max_results,
-        hours_old=hours_old,
-        job_type=job_type,
-        is_remote=is_remote,
+    request = WebSocketSearchRequest(
+        keywords="frontend developer",
+        location="",
+        results_wanted=5,
+        hours_old=720,
+        job_contract="full_time",
+        job_type="remote",
     )
+
+    import asyncio
+
+    jobs = asyncio.run(search_jobs_jobstreet(request=request))
 
     print(f"\n{'=' * 60}")
     print(f"RESULTS: Found {len(jobs)} jobs")

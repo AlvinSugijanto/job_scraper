@@ -1,13 +1,5 @@
-import { Inter, Poppins } from "next/font/google";
-
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClientToaster } from "@/components/toaster";
-
-const inter = Inter({ subsets: ["latin"] });
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700"],
-});
 
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";

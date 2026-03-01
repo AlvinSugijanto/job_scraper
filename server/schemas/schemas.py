@@ -80,6 +80,7 @@ class Job(BaseModel):
     created_at: Optional[str] = None
     job_type: Optional[str] = None
     job_contract: Optional[str] = None
+    source: Optional[str] = None
 
 
 class JobSearchResponse(BaseModel):

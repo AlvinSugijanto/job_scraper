@@ -1,61 +1,104 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+
+const components = {
+  // Headings
+  h1: ({ children }) => (
+    <h1 className="text-xl font-bold mt-4 mb-2 text-foreground">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-lg font-bold mt-4 mb-2 text-foreground">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-base font-semibold mt-3 mb-1 text-foreground">
+      {children}
+    </h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-sm font-semibold mt-2 mb-1 text-foreground">
+      {children}
+    </h4>
+  ),
+
+  // Paragraph
+  p: ({ children }) => (
+    <p className="mb-2 text-sm leading-relaxed text-foreground">{children}</p>
+  ),
+
+  // Unordered list
+  ul: ({ children }) => (
+    <ul className="my-2 ml-5 list-disc space-y-1">{children}</ul>
+  ),
+
+  // Ordered list
+  ol: ({ children }) => (
+    <ol className="my-2 ml-5 list-decimal space-y-1">{children}</ol>
+  ),
+
+  // List item — strip leading <br> that Jobstreet sometimes puts inside <li>
+  li: ({ children }) => (
+    <li className="text-sm leading-relaxed text-foreground pl-1">{children}</li>
+  ),
+
+  // Bold / italic
+  strong: ({ children }) => (
+    <strong className="font-semibold text-foreground">{children}</strong>
+  ),
+  em: ({ children }) => <em className="italic">{children}</em>,
+
+  // Links
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2 hover:text-primary/80"
+    >
+      {children}
+    </a>
+  ),
+
+  // Divider
+  hr: () => <hr className="my-4 border-border" />,
+
+  // Blockquote
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-4 border-border pl-4 italic text-muted-foreground my-3">
+      {children}
+    </blockquote>
+  ),
+
+  // Inline code
+  code: ({ children }) => (
+    <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">
+      {children}
+    </code>
+  ),
+
+  // Span — used heavily by Jobstreet HTML; render as plain text wrapper
+  span: ({ children }) => <span>{children}</span>,
+
+  // Div
+  div: ({ children }) => <div>{children}</div>,
+};
 
 /**
- * Renders job description HTML safely using DOMPurify
+ * Renders job description HTML safely using react-markdown
  */
 export function JobDescription({ description }) {
-  const [sanitizedHtml, setSanitizedHtml] = useState("");
-
-  useEffect(() => {
-    if (description) {
-      // Sanitize HTML to prevent XSS attacks
-      const clean = DOMPurify.sanitize(description, {
-        ALLOWED_TAGS: [
-          "p",
-          "br",
-          "strong",
-          "b",
-          "em",
-          "i",
-          "u",
-          "ul",
-          "ol",
-          "li",
-          "h1",
-          "h2",
-          "h3",
-          "h4",
-          "h5",
-          "h6",
-          "a",
-          "span",
-          "div",
-        ],
-        ALLOWED_ATTR: ["href", "target", "rel", "class"],
-      });
-      setSanitizedHtml(clean);
-    }
-  }, [description]);
-
   if (!description) return null;
 
   return (
-    <div
-      className="job-description prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 leading-relaxed tracking-wide
-        [&_ul]:list-disc [&_ul]:list-inside [&_ul]:my-2 [&_ul]:ml-2
-        [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:my-2 [&_ol]:ml-2
-        [&_li]:mb-1
-        [&_p]:mb-2
-        [&_strong]:text-foreground [&_strong]:font-semibold
-        [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80
-        [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
-        [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
-        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-2
-        [&_br]:block [&_br]:content-[''] [&_br]:mb-2"
-      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-    />
+    <div className="job-description max-w-none">
+      <ReactMarkdown
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={components}
+      >
+        {description}
+      </ReactMarkdown>
+    </div>
   );
 }

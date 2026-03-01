@@ -2,6 +2,7 @@
 LinkedIn Job Scraper API
 """
 
+from scraper import search_jobs_jobstreet
 from fastapi import (
     FastAPI,
     Query,
@@ -176,8 +177,16 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
             client_id=client_id,
         )
 
+        # jobs = await search_jobs_jobstreet(
+        #     request=request,
+        #     existing_ids=existing_ids,
+        #     manager=manager,
+        #     client_id=client_id,
+        # )
+
         # Save to database
         new_count = save_jobs_to_db(db, jobs, request)
+        # new_count_jobstreet = save_jobs_to_db(db, jobs_jobstreet, request)
 
         # Notify: completed
         await manager.send_completed(client_id, len(jobs), new_count)
