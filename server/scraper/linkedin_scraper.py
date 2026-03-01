@@ -127,6 +127,12 @@ async def search_jobs_linkedin(
         if not job_cards:
             break
 
+        # Dump raw HTML cards
+        from dumps.dumps_to_json import dump_raw_to_json
+
+        raw_cards = [str(card) for card in job_cards]
+        dump_raw_to_json(raw_cards, source="linkedin")
+
         # Extract jobs from cards
         for i, card in enumerate(job_cards):
             if manager:
@@ -155,6 +161,12 @@ async def search_jobs_linkedin(
         if len(jobs) < request.results_wanted:
             delay = random.uniform(2, 5)
             await asyncio.sleep(delay)
+
+    # Dump parsed results
+    if jobs:
+        from dumps.dumps_to_json import dump_to_json
+
+        dump_to_json(jobs, source="linkedin")
 
     return jobs
 
@@ -287,100 +299,27 @@ def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
     return True
 
 
-# def search_jobs(
-#     keywords: str,
-#     location: str = "",
-#     distance: int = None,
-#     job_contract: str = None,
-#     is_remote: bool = False,
-#     easy_apply: bool = False,
-#     hours_old: int = None,
-#     results_wanted: int = 25,
-#     existing_ids: set = None,
-# ):
-#     """
-#     Search LinkedIn jobs with given parameters (sync version).
+# ============ TESTING ============
+if __name__ == "__main__":
+    print("\n" + "=" * 60)
+    print("LINKEDIN JOB SCRAPER - TEST MODE")
+    print("=" * 60)
 
-#     Args:
-#         keywords: Search keywords (e.g., "python developer")
-#         location: Location to search (e.g., "Jakarta, Indonesia")
-#         distance: Search radius in miles
-#         job_contract: One of: full_time, part_time, internship, contract, temporary
-#         is_remote: Filter remote jobs only
-#         easy_apply: Filter Easy Apply jobs only
-#         hours_old: Filter jobs posted within X hours
-#         results_wanted: Number of results to fetch (max ~1000)
-#         existing_ids: Set of job IDs to skip (already in database)
+    request = WebSocketSearchRequest(
+        keywords="frontend developer",
+        location="Indonesia",
+        results_wanted=5,
+        hours_old=720,
+        job_contract="full_time",
+        job_type="remote",
+    )
 
-#     Returns:
-#         List of job dictionaries
-#     """
-#     jobs = []
-#     seen_ids = existing_ids.copy() if existing_ids else set()
-#     start = 0
+    import asyncio
 
-#     session = requests.Session()
-#     session.headers.update(HEADERS)
+    jobs = asyncio.run(search_jobs_linkedin(request=request))
 
-#     while len(jobs) < results_wanted and start < 1000:
-#         # Build params
-#         params = {
-#             "keywords": keywords,
-#             "location": location,
-#             "start": start,
-#             "pageNum": 0,
-#         }
+    print(f"\n{'=' * 60}")
+    print(f"RESULTS: Found {len(jobs)} jobs")
+    print("=" * 60)
 
-#         if distance:
-#             params["distance"] = distance
-#         if job_contract and job_contract in JOB_CONTRACT_CODES:
-#             params["f_JT"] = JOB_CONTRACT_CODES[job_contract]
-#         if is_remote:
-#             params["f_WT"] = 2
-#         if easy_apply:
-#             params["f_AL"] = "true"
-#         if hours_old:
-#             params["f_TPR"] = f"r{hours_old * 3600}"
-
-#         # Make request
-#         try:
-#             response = session.get(
-#                 f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
-#                 params=params,
-#                 timeout=10,
-#             )
-
-#             if response.status_code == 429:
-#                 time.sleep(60)
-#                 continue
-
-#             if response.status_code != 200:
-#                 break
-
-#         except Exception:
-#             break
-
-#         # Parse HTML
-#         soup = BeautifulSoup(response.text, "html.parser")
-#         job_cards = soup.find_all("div", class_="base-search-card")
-
-#         if not job_cards:
-#             break
-
-#         # Extract jobs from cards
-#         for card in job_cards:
-#             job = parse_job_card(card, session)
-#             if job and job["id"] not in seen_ids:
-#                 seen_ids.add(job["id"])
-#                 jobs.append(job)
-
-#                 if len(jobs) >= results_wanted:
-#                     break
-
-#         # Delay before next page
-#         start += len(job_cards)
-#         if len(jobs) < results_wanted:
-#             delay = random.uniform(2, 5)
-#             time.sleep(delay)
-
-#     return jobs
+    print("\nTest completed!")

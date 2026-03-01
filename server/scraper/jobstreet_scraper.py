@@ -173,8 +173,6 @@ def parse_job_card(job_data, session=None):
 
         job["job_contract"] = JobContractType.detect(combined_text)
         job["job_type"] = JobType.detect(combined_text)
-        print("job contract : ", job["job_contract"])
-        print("job type : ", job["job_type"])
 
         return job
 
@@ -252,12 +250,16 @@ def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
 
 def _extract_job_listings(soup):
     """Extract job listings from parsed HTML cards."""
-    from utils.dumps_to_json import dump_to_json
+    from dumps.dumps_to_json import dump_to_json, dump_raw_to_json
 
     cards = soup.find_all("article", attrs={"data-automation": "normalJob"})
     if not cards:
         print("[DEBUG] No job cards found in HTML")
         return []
+
+    # Dump raw HTML cards before parsing
+    raw_cards = [str(card) for card in cards]
+    dump_raw_to_json(raw_cards, source="jobstreet")
 
     job_listings = []
     for card in cards:
@@ -266,7 +268,7 @@ def _extract_job_listings(soup):
             job_listings.append(job)
 
     if job_listings:
-        dump_to_json(job_listings)
+        dump_to_json(job_listings, source="jobstreet")
 
     return job_listings
 
