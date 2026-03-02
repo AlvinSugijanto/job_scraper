@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScrapingProgress, ScrapingProgress } from "./scraping-progress";
-import { JOB_CONTRACT, JOB_TYPE, POSTED_WITHIN_TYPES } from "@/data/enums";
+import {
+  JOB_CONTRACT,
+  JOB_TYPE,
+  POSTED_WITHIN_TYPES,
+  JOB_PORTALS,
+} from "@/data/enums";
 
 export function SearchJobsDialog({ onSuccess }) {
   const [open, setOpen] = useState(false);
@@ -46,6 +52,7 @@ export function SearchJobsDialog({ onSuccess }) {
       easy_apply: false,
       results_wanted: 25,
       hours_old: "",
+      job_portals: JOB_PORTALS.map((p) => p.value),
     },
   });
 
@@ -78,6 +85,7 @@ export function SearchJobsDialog({ onSuccess }) {
         easy_apply: data.easy_apply,
         results_wanted: parseInt(data.results_wanted) || 25,
         hours_old: data.hours_old ? parseInt(data.hours_old) : undefined,
+        job_portals: data.job_portals,
       };
       scraping.startScraping(params);
     } catch (error) {
@@ -137,6 +145,19 @@ export function SearchJobsDialog({ onSuccess }) {
               placeholder="e.g. Jakarta, Indonesia"
               disabled={scraping.isActive}
               {...register("location")}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Job Portals</Label>
+            <MultiSelect
+              options={JOB_PORTALS}
+              defaultValue={JOB_PORTALS.map((p) => p.value)}
+              onValueChange={(values) => {
+                if (values.length > 0) setValue("job_portals", values);
+              }}
+              placeholder="Select job portals..."
+              disabled={scraping.isActive}
             />
           </div>
 

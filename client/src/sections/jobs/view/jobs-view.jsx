@@ -43,6 +43,7 @@ export default function JobsView() {
       job_type: "all",
       job_contract: "all",
       location: "",
+      job_portal: "all",
       sortBy: "created_at",
       sortOrder: "desc",
     },
@@ -66,6 +67,8 @@ export default function JobsView() {
         jobType: filters.job_type === "all" ? undefined : filters.job_type,
         jobContract:
           filters.job_contract === "all" ? undefined : filters.job_contract,
+        jobPortal:
+          filters.job_portal === "all" ? undefined : filters.job_portal,
         location: filters.location || undefined,
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,

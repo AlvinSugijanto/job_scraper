@@ -92,12 +92,6 @@ async def search_jobs_linkedin(
         if request.hours_old:
             params["f_TPR"] = f"r{request.hours_old * 3600}"
 
-        # print full url
-        full_url = (
-            f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search?"
-            + "&".join([f"{k}={v}" for k, v in params.items()])
-        )
-        print("Full Url :", full_url)
         # Make request
         try:
             response = session.get(

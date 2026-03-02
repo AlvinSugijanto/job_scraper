@@ -99,7 +99,6 @@ async def search_jobs_jobstreet(
         # Make request
         try:
             response = session.get(url, params=params, timeout=15)
-            print(response.url)
 
             if response.status_code == 429:
                 wait_seconds = 60

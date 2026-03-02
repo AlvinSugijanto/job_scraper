@@ -8,6 +8,9 @@ from .schemas import (
     StoredJobsResponse,
     SearchRequest,
     WebSocketSearchRequest,
+)
+
+from .enums import (
     JobType,
     JobContractType,
 )

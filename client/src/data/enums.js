@@ -20,3 +20,8 @@ export const POSTED_WITHIN_TYPES = [
   { value: "336", label: "Last 14 Days" },
   { value: "720", label: "Last 30 Days" },
 ];
+
+export const JOB_PORTALS = [
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "jobstreet", label: "Jobstreet" },
+];

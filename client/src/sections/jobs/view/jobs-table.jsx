@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fDate, fDateTime } from "@/utils/format-time";
-import { JOB_CONTRACT, JOB_TYPE } from "@/data/enums";
+import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 
 const SORTABLE_COLUMNS = [
   { key: "title", label: "Title" },
@@ -40,6 +40,7 @@ const SORTABLE_COLUMNS = [
   { key: "company", label: "Company" },
   { key: "location", label: "Location" },
   { key: "salary", label: "Salary" },
+  { key: "source", label: "Source" },
   { key: "date_posted", label: "Posted" },
   { key: "created_at", label: "Searched At" },
 ];
@@ -141,6 +142,7 @@ export default function JobsTable({
                 key={job.id}
                 className="cursor-pointer hover:bg-muted/50"
                 data-selected={selectedIds.has(job.id)}
+                onClick={() => handleRowClick(job.id)}
               >
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
@@ -150,10 +152,7 @@ export default function JobsTable({
                     className="ml-3"
                   />
                 </TableCell>
-                <TableCell
-                  className="font-medium"
-                  onClick={() => handleRowClick(job.id)}
-                >
+                <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
                     <Badge variant="default" className="capitalize w-[60px]">
                       {JOB_TYPE.find((t) => t.value === job.job_type)?.label ??
@@ -166,25 +165,25 @@ export default function JobsTable({
                   {JOB_CONTRACT.find((c) => c.value === job.job_contract)
                     ?.label ?? "-"}
                 </TableCell>
-                <TableCell onClick={() => handleRowClick(job.id)}>
-                  <div className="flex items-center gap-2">
-                    <span className="line-clamp-1">{job.company}</span>
-                  </div>
-                </TableCell>
-                <TableCell onClick={() => handleRowClick(job.id)}>
+                <TableCell>{job.company}</TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     <span className="line-clamp-1">{job.location}</span>
                   </div>
                 </TableCell>
-                <TableCell onClick={() => handleRowClick(job.id)}>
+                <TableCell>
                   {job.salary ? (
                     <Badge variant="default">{job.salary}</Badge>
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
-                <TableCell onClick={() => handleRowClick(job.id)}>
+                <TableCell>
+                  {JOB_PORTALS.find((c) => c.value === job.source)?.label ??
+                    "-"}
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
@@ -192,7 +191,7 @@ export default function JobsTable({
                     </span>
                   </div>
                 </TableCell>
-                <TableCell onClick={() => handleRowClick(job.id)}>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm" title={fDateTime(job.created_at)}>

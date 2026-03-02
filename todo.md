@@ -1,9 +1,5 @@
--refactor job_contract logic -> bikin parse dari cards aja (cari dari semua elemen) (done)
--create an accurate scraping keywords/job_type/job_contract (refactor code nya, flow nya terlihat muter2 dan memusingkan), logic nya job_contract & job_type masih aneh
-
-detail :
-get data dari cards lalu description,
-cek apakah keywords/job_type/job_contract sesuai, jika tidak sesuai skip
-save_to_db function bikin langsung store ke db aja, gausah bikin logic lagi
-
--create more filters at ui
+1. tambahin job_portal di payload
+2. benerin main.py, scrape dari job_portal yang dipilih aja
+3. tambahin filter job_portal di ui
+4. benerin dark mode nya dan responsive layoutnya
+5. pelajarin indexing di db (https://chatgpt.com/c/69a46d6a-a178-83a0-9955-07f904adceed)

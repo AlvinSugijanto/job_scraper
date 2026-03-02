@@ -14,7 +14,7 @@ def dump_to_json(data, source="jobstreet"):
     filepath = os.path.join(DUMPS_DIR, f"{source}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    print(f"[dump] Parsed → {filepath} ({len(data)} items)")
+    print(f"[dump] Parsed -> {filepath} ({len(data)} items)")
 
 
 def dump_raw_to_json(raw_cards, source="jobstreet"):
@@ -31,4 +31,4 @@ def dump_raw_to_json(raw_cards, source="jobstreet"):
     filepath = os.path.join(DUMPS_DIR, f"{source}_raw.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(raw_cards, f, indent=2, ensure_ascii=False)
-    print(f"[dump] Raw     → {filepath} ({len(raw_cards)} items)")
+    print(f"[dump] Raw     -> {filepath} ({len(raw_cards)} items)")

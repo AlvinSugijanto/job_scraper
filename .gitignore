@@ -61,6 +61,7 @@ venv/
 env/
 server/.glints_browser_data/
 server/glints_auth.json
+server/dumps/*.json
 
 
 # Database

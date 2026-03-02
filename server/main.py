@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc, func
+import asyncio
 import re
 
 from scraper import search_jobs_linkedin
@@ -64,6 +65,7 @@ def get_stored_jobs(
     job_type: Optional[str] = Query(None, description="Filter by job type"),
     job_contract: Optional[str] = Query(None, description="Filter by job contract"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    source: Optional[str] = Query(None, description="Filter by source"),
     sort_by: Optional[str] = Query(
         "created_at",
         description="Sort by field: title, company, location, salary, date_posted, created_at",
@@ -105,6 +107,9 @@ def get_stored_jobs(
 
     if location:
         query = query.filter(JobModel.location.ilike(f"%{location}%"))
+
+    if source:
+        query = query.filter(JobModel.source == source)
 
     # Get total count before pagination
     total = query.count()
@@ -169,27 +174,42 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         # Get existing IDs
         existing_ids = get_existing_job_ids(db)
 
-        # Run async scraper with progress callback
-        jobs = await search_jobs_linkedin(
-            request=request,
-            existing_ids=existing_ids,
-            manager=manager,
-            client_id=client_id,
-        )
+        # Map portal key → scraper function
+        portal_scrapers = {
+            "linkedin": search_jobs_linkedin,
+            "jobstreet": search_jobs_jobstreet,
+        }
 
-        # jobs = await search_jobs_jobstreet(
-        #     request=request,
-        #     existing_ids=existing_ids,
-        #     manager=manager,
-        #     client_id=client_id,
-        # )
+        # Filter only valid & selected portals
+        portals = [p for p in (request.job_portals or []) if p in portal_scrapers]
+        if not portals:
+            portals = ["linkedin"]  # fallback
+
+        # Run selected scrapers concurrently
+        tasks = [
+            portal_scrapers[portal](
+                request=request,
+                existing_ids=existing_ids,
+                manager=manager,
+                client_id=client_id,
+            )
+            for portal in portals
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Merge results, skip any that errored
+        all_jobs = []
+        for result in results:
+            if isinstance(result, Exception):
+                await manager.send_error(client_id, str(result))
+            else:
+                all_jobs.extend(result)
 
         # Save to database
-        new_count = save_jobs_to_db(db, jobs, request)
-        # new_count_jobstreet = save_jobs_to_db(db, jobs_jobstreet, request)
+        new_count = save_jobs_to_db(db, all_jobs, request)
 
         # Notify: completed
-        await manager.send_completed(client_id, len(jobs), new_count)
+        await manager.send_completed(client_id, len(all_jobs), new_count)
 
     except WebSocketDisconnect:
         pass

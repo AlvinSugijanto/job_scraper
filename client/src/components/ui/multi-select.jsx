@@ -1,322 +1,100 @@
 "use client";
 
-import * as React from "react";
-import { CheckIcon, ChevronDown, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Badge } from "@/components/ui/badge";
+import ReactSelect from "react-select";
 import { cn } from "@/lib/utils";
 
-const sizeStyles = {
-  xs: {
-    button: "min-h-7 px-2 text-[10px]",
-    badge: "text-[10px] px-1.5 py-0",
-    icon: "w-3 h-3",
-  },
-  sm: {
-    button: "min-h-8 px-2 text-xs",
-    badge: "text-xs px-2 py-0.5",
-    icon: "w-3.5 h-3.5",
-  },
-  md: {
-    button: "min-h-10 px-3 text-sm",
-    badge: "text-sm px-2.5 py-0.5",
-    icon: "w-4 h-4",
-  },
-  lg: {
-    button: "min-h-12 px-4 text-base",
-    badge: "text-base px-3 py-1",
-    icon: "w-5 h-5",
-  },
-};
-
+/**
+ * MultiSelect component berbasis react-select, dengan styling
+ * yang mengikuti design system (CSS variables dari globals.css).
+ *
+ * Props:
+ *  - options: { value, label }[]
+ *  - value: string[]              — list value yang dipilih (controlled)
+ *  - onValueChange: (values: string[]) => void
+ *  - defaultValue: string[]       — untuk uncontrolled usage
+ *  - placeholder: string
+ *  - disabled: boolean
+ *  - className: string
+ *  - searchable: boolean          (default: true)
+ *  - isClearable: boolean         (default: false)
+ *  - closeMenuOnSelect: boolean   (default: false)
+ */
 export function MultiSelect({
-  options,
-  onValueChange,
+  options = [],
   value,
-  defaultValue = [],
-  placeholder = "Select options",
-  searchable = true,
-  emptyText = "No results found",
-  className,
-  closeOnSelect = false,
-  hideSelectAll = false,
-  maxViewSelected = 1,
-  size = "sm",
+  onValueChange,
+  defaultValue,
+  placeholder = "Select options...",
   disabled = false,
+  className,
+  searchable = true,
+  isClearable = false,
+  closeMenuOnSelect = false,
 }) {
-  const [internalValue, setInternalValue] = React.useState(defaultValue);
-  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
-  const [searchValue, setSearchValue] = React.useState("");
+  // react-select expects { value, label } objects
+  const toOption = (v) =>
+    options.find((o) => o.value === v) ?? { value: v, label: v };
 
-  const isGrouped = options.length > 0 && "heading" in options[0];
+  // Controlled: convert string[] → option objects
+  const selectedOptions = value !== undefined ? value.map(toOption) : undefined;
+  const defaultOptions =
+    defaultValue !== undefined ? defaultValue.map(toOption) : undefined;
 
-  const isControlled = value !== undefined;
-  const selectedValues = isControlled ? value : internalValue;
-
-  const s = sizeStyles[size] ?? sizeStyles["md"];
-
-  const toggleOption = (value) => {
-    if (disabled) return;
-
-    const newValues = selectedValues.includes(value)
-      ? selectedValues.filter((v) => v !== value)
-      : [...selectedValues, value];
-
-    if (!isControlled) setInternalValue(newValues);
-    onValueChange?.(newValues);
-    if (closeOnSelect) setIsPopoverOpen(false);
+  const handleChange = (selected) => {
+    const values = (selected ?? []).map((o) => o.value);
+    onValueChange?.(values);
   };
-
-  const clearAll = () => {
-    if (disabled) return;
-
-    if (!isControlled) setInternalValue([]);
-    onValueChange?.([]);
-  };
-
-  const allOptions = React.useMemo(() => {
-    if (isGrouped) return options.flatMap((g) => g.options);
-    return options;
-  }, [options]);
-
-  const toggleAll = () => {
-    if (disabled) return;
-
-    if (selectedValues.length === allOptions.length) {
-      clearAll();
-    } else {
-      const all = allOptions.map((o) => o.value);
-      if (!isControlled) setInternalValue(all);
-      onValueChange?.(all);
-    }
-  };
-
-  const filteredOptions = React.useMemo(() => {
-    if (!searchValue) return options;
-    const filterFn = (opt) => {
-      const label = String(opt.label ?? "").toLowerCase();
-      const value = String(opt.value ?? "").toLowerCase();
-      const search = searchValue.toLowerCase();
-
-      return label.includes(search) || value.includes(search);
-    };
-
-    if (isGrouped) {
-      return options
-        .map((g) => ({
-          ...g,
-          options: g.options.filter(filterFn),
-        }))
-        .filter((g) => g.options.length > 0);
-    }
-    return options.filter(filterFn);
-  }, [options, searchValue]);
 
   return (
-    <Popover
-      open={isPopoverOpen && !disabled}
-      onOpenChange={(open) => !disabled && setIsPopoverOpen(open)}
-      modal={true}
-    >
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          className={cn("w-full justify-between", s.button, className)}
-        >
-          <div className="flex flex-wrap items-start gap-1">
-            {selectedValues.length > 0 ? (
-              <div className="flex items-center flex-wrap gap-1">
-                {/* Ambil hanya maxViewSelected pertama */}
-                {selectedValues.slice(0, maxViewSelected).map((value) => {
-                  const label =
-                    allOptions.find((o) => o.value === value)?.label || value;
-                  return (
-                    <Badge
-                      key={value}
-                      className={cn(
-                        "flex items-center gap-1",
-                        disabled
-                          ? "cursor-not-allowed opacity-50"
-                          : "cursor-pointer",
-                        s.badge
-                      )}
-                      onClick={(e) => {
-                        if (!disabled) {
-                          e.stopPropagation();
-                          toggleOption(value);
-                        }
-                      }}
-                    >
-                      {label}
-                      <XCircle className="w-3 h-3" />
-                    </Badge>
-                  );
-                })}
-
-                {/* Jika masih ada sisa selected */}
-                {selectedValues.length > maxViewSelected && (
-                  <Badge variant="outline" className={s.badge}>
-                    +{selectedValues.length - maxViewSelected}
-                  </Badge>
-                )}
-              </div>
-            ) : (
-              <span className="text-muted-foreground text-xs">
-                {placeholder}
-              </span>
-            )}
-          </div>
-          <ChevronDown className="w-4 h-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side="bottom"
-        sideOffset={4}
-        className="min-w-[280px] p-0"
-        style={{
-          zIndex: 9999,
-        }}
-      >
-        <Command className="shadow-md" shouldFilter={false}>
-          {searchable && (
-            <CommandInput
-              placeholder="Search..."
-              value={searchValue}
-              onValueChange={setSearchValue}
-              className="h-9"
-            />
-          )}
-
-          <CommandList className="max-h-64 overflow-auto">
-            <CommandEmpty className="py-6 text-center text-sm">
-              {emptyText}
-            </CommandEmpty>
-
-            {!hideSelectAll && (
-              <CommandGroup className="border-b pb-1">
-                <CommandItem
-                  onSelect={toggleAll}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <div
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-[4px] border",
-                      selectedValues.length === allOptions.length
-                        ? "bg-primary border-primary"
-                        : "dark:border-white/50 border-black/50"
-                    )}
-                  >
-                    <CheckIcon
-                      className={
-                        selectedValues.length === allOptions.length
-                          ? "text-primary-foreground"
-                          : ""
-                      }
-                    />
-                  </div>
-                  <span>Select All</span>
-                </CommandItem>
-              </CommandGroup>
-            )}
-
-            {isGrouped ? (
-              filteredOptions.map((group) => (
-                <CommandGroup
-                  key={group.heading}
-                  heading={group.heading}
-                  className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
-                >
-                  {group.options.map((opt) => {
-                    const isSelected = selectedValues.includes(opt.value);
-                    return (
-                      <CommandItem
-                        key={opt.value}
-                        value={String(opt.value)}
-                        disabled={opt.disabled}
-                        onSelect={() => toggleOption(opt.value)}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <div
-                          className={cn(
-                            "flex h-4 w-4 items-center justify-center rounded-[4px] border",
-                            isSelected
-                              ? "bg-primary border-primary"
-                              : "dark:border-white/50 border-black/50"
-                          )}
-                        >
-                          <CheckIcon
-                            className={
-                              isSelected ? "text-primary-foreground" : ""
-                            }
-                          />
-                        </div>
-                        {opt.label}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))
-            ) : (
-              <CommandGroup>
-                {filteredOptions.map((opt) => {
-                  const isSelected = selectedValues.includes(opt.value);
-                  return (
-                    <CommandItem
-                      key={opt.value}
-                      value={String(opt.value)}
-                      disabled={opt.disabled}
-                      onSelect={() => toggleOption(opt.value)}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <div
-                        className={cn(
-                          "flex h-4 w-4 items-center justify-center rounded-[4px] border",
-                          isSelected
-                            ? "bg-primary border-primary"
-                            : "dark:border-white/50 border-black/50"
-                        )}
-                      >
-                        <CheckIcon
-                          className={
-                            isSelected ? "text-primary-foreground" : ""
-                          }
-                        />
-                      </div>
-                      {opt.label}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            {selectedValues.length > 0 && (
-              <CommandGroup className="border-t pt-1">
-                <CommandItem
-                  onSelect={clearAll}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  Clear All
-                </CommandItem>
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <ReactSelect
+      isMulti
+      options={options}
+      value={selectedOptions}
+      defaultValue={defaultOptions}
+      onChange={handleChange}
+      isDisabled={disabled}
+      isSearchable={searchable}
+      isClearable={isClearable}
+      closeMenuOnSelect={closeMenuOnSelect}
+      placeholder={placeholder}
+      classNamePrefix="rs"
+      unstyled
+      className={cn("w-full text-sm", className)}
+      classNames={{
+        control: ({ isFocused, isDisabled }) =>
+          cn(
+            "flex min-h-9 w-full rounded-md border bg-transparent px-3 py-1 shadow-xs transition-colors",
+            "border-input",
+            isFocused && "ring-2 ring-ring border-ring outline-none",
+            isDisabled && "cursor-not-allowed opacity-50",
+          ),
+        valueContainer: () => "flex flex-wrap gap-1 py-0.5",
+        placeholder: () => "text-muted-foreground text-sm",
+        input: () => "text-foreground text-sm",
+        multiValue: () =>
+          "flex items-center gap-1 rounded-md bg-primary/10 text-primary text-xs px-2 py-0.5",
+        multiValueLabel: () => "text-xs font-medium",
+        multiValueRemove: () =>
+          "rounded-sm opacity-60 hover:opacity-100 hover:bg-destructive/20 hover:text-destructive transition-colors p-0.5",
+        indicatorsContainer: () => "flex items-center gap-1 self-center",
+        clearIndicator: () =>
+          "text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5",
+        dropdownIndicator: () =>
+          "text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5",
+        indicatorSeparator: () => "hidden",
+        menu: () =>
+          "mt-1 rounded-md border border-border bg-popover shadow-md overflow-hidden z-50",
+        menuList: () => "max-h-60 overflow-auto py-1",
+        option: ({ isFocused, isSelected }) =>
+          cn(
+            "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors",
+            isFocused && !isSelected && "bg-accent text-accent-foreground",
+            isSelected && "bg-primary text-primary-foreground",
+          ),
+        noOptionsMessage: () =>
+          "py-6 text-center text-sm text-muted-foreground",
+        loadingMessage: () => "py-6 text-center text-sm text-muted-foreground",
+      }}
+    />
   );
 }
