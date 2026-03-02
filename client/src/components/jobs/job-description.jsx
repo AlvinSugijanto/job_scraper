@@ -7,20 +7,16 @@ import rehypeSanitize from "rehype-sanitize";
 const components = {
   // Headings
   h1: ({ children }) => (
-    <h1 className="text-xl font-bold mt-4 mb-2 text-foreground">{children}</h1>
+    <h1 className="text-sm font-bold mt-4 mb-2 text-foreground">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-lg font-bold mt-4 mb-2 text-foreground">{children}</h2>
+    <h2 className="text-sm font-bold text-foreground">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-base font-semibold mt-3 mb-1 text-foreground">
-      {children}
-    </h3>
+    <h3 className="text-sm font-semibold text-foreground">{children}</h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-sm font-semibold mt-2 mb-1 text-foreground">
-      {children}
-    </h4>
+    <h4 className="text-sm font-semibold text-foreground">{children}</h4>
   ),
 
   // Paragraph
@@ -82,7 +78,9 @@ const components = {
   span: ({ children }) => <span>{children}</span>,
 
   // Div
-  div: ({ children }) => <div>{children}</div>,
+  div: ({ children }) => (
+    <div className="text-foreground text-sm">{children}</div>
+  ),
 };
 
 /**

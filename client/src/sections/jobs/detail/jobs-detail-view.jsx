@@ -149,7 +149,9 @@ export default function JobDetailView({ id }) {
           {/* Description */}
           {job.description ? (
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Job Description</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Job Description
+              </h3>
               <JobDescription description={job.description} />
             </div>
           ) : (
