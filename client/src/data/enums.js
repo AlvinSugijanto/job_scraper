@@ -24,4 +24,5 @@ export const POSTED_WITHIN_TYPES = [
 export const JOB_PORTALS = [
   { value: "linkedin", label: "LinkedIn" },
   { value: "jobstreet", label: "Jobstreet" },
+  { value: "kalibrr", label: "Kalibrr" },
 ];

@@ -2,6 +2,7 @@
 LinkedIn Job Scraper API
 """
 
+from scraper import search_jobs_kalibrr
 from scraper import search_jobs_jobstreet
 from fastapi import (
     FastAPI,
@@ -178,6 +179,7 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         portal_scrapers = {
             "linkedin": search_jobs_linkedin,
             "jobstreet": search_jobs_jobstreet,
+            "kalibrr": search_jobs_kalibrr,
         }
 
         # Filter only valid & selected portals

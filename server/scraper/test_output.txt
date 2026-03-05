@@ -1,0 +1,169 @@
+Looking for h2 links:
+<h2 class="lg:k-w-full k-text-2xl k-font-medium k-font-bold k-text-ellipsis k-overflow-hidden k-whitespace-normal css-1gzvnis" data-tooltip-id="job-title-tooltip-[object Object]">
+ <a class="k-text-black" href="/id-ID/c/astro-technologies-indonesia/jobs/264007/senior-frontend-engineer-project-based" itemprop="name">
+  Senior Frontend Engineer, Project Based
+ </a>
+</h2>
+
+---
+<div class="k-container k-grid k-grid-cols-1 md:k-grid-cols-2 xl:k-grid-cols-3 k-gap-4 k-mt-8 k-mb-10" itemscope="" itemtype="http://schema.org/ItemList">
+ <style data-emotion="css 1otdiuc">
+  @media (min-width: 1024px){.css-1otdiuc:hover .blur{-webkit-transition:filter 0.3s ease;transition:filter 0.3s ease;-webkit-filter:blur(4px);filter:blur(4px);border-color:#ced9ea;box-shadow:0px 4px 4px 0px rgba(0, 0, 0, 0.25),0px 4px 20px 0px rgba(0, 0, 0, 0.1);}}
+ </style>
+ <div class="k-font-dm-sans k-rounded-lg k-bg-white k-border-solid k-border hover:k-border-2 hover:k-border-primary-color k-border k-group k-flex k-flex-col k-justify-between css-1otdiuc">
+  <div class="k-flex k-p-4 k-gap-2 md:k-gap-4">
+   <div>
+    <a class="k-border k-border-gray k-bg-white k-flex k-items-center k-flex-shrink k-justify-center k-text-4xl k-text-subdued k-overflow-hidden k-px-4 k-py-2 k-h-20 k-w-24 k-rounded-lg" href="/id-ID/c/astro-technologies-indonesia/jobs?source=B2C%20Landing%20Page&amp;action=Company%20Logo&amp;filter=">
+     <div>
+      <img alt="Astro Technologies Indonesia" class="k-block k-max-w-full k-max-h-full k-bg-white k-mx-auto" decoding="async" height="80" loading="eager" src="https://rec-data.kalibrr.com/www.kalibrr.com/logos/PTXVMK7SETESEYXTP58FU8AB4ALSV9SLUXPAVXDL-691aa68d.png" width="130"/>
+     </div>
+    </a>
+   </div>
+   <div class="k-flex-1 k-h-full k-flex k-flex-col k-justify-center">
+    <style data-emotion="css 1gzvnis">
+     .css-1gzvnis{display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+    </style>
+    <h2 class="lg:k-w-full k-text-2xl k-font-medium k-font-bold k-text-ellipsis k-overflow-hidden k-whitespace-normal css-1gzvnis" data-tooltip-id="job-title-tooltip-[object Object]">
+     <a class="k-text-black" href="/id-ID/c/astro-technologies-indonesia/jobs/264007/senior-frontend-engineer-project-based" itemprop="name">
+      Senior Frontend Engineer, Project Based
+     </a>
+    </h2>
+    <span class="k-inline-flex k-items-center k-mb-1">
+     <a class="k-text-subdued k-font-bold" href="/id-ID/c/astro-technologies-indonesia/jobs?source=B2C%20Landing%20Page&amp;action=Company%20Name&amp;filter=All%20Jobs">
+      Astro Technologies Indonesia
+      <span class="k-ml-1">
+       <div class="" style="display:inline" title="verified-business">
+        <svg aria-hidden="true" class="MuiSvgIcon-root k-text-primary-color-500 MuiSvgIcon-fontSizeSmall" focusable="false" height="20" viewbox="0 0 24 24" width="20">
+         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z">
+         </path>
+        </svg>
+       </div>
+      </span>
+     </a>
+    </span>
+   </div>
+   <button class="k-h-0">
+    <svg aria-hidden="true" class="MuiSvgIcon-root k-text-gray-300 k-justify-self-end" focusable="false" viewbox="0 0 24 24">
+     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z">
+     </path>
+    </svg>
+   </button>
+  </div>
+  <div class="k-relative">
+   <div class="blur k-flex k-flex-col k-gap-3 k-px-4 k-pb-4">
+    <span class="k-flex k-gap-4 k-text-gray-300">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z">
+      </path>
+     </svg>
+     <span class="k-text-gray-500 k-block k-pointer-events-none">
+      West Jakarta, Indonesia
+     </span>
+    </span>
+    <span class="k-flex k-gap-4 k-text-gray-300 k-pointer-events-none">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z">
+      </path>
+     </svg>
+     <p class="k-text-gray-500">
+      Gaji Tidak Diumumkan
+     </p>
+    </span>
+    <span class="k-flex k-gap-4 2xl:k-gap-4 k-items-center k-text-gray-300 k-pointer-events-none">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z">
+      </path>
+     </svg>
+     <span class="k-text-gray-500">
+      Pekerja lepas / Freelance
+     </span>
+     <span class="k-hidden" itemprop="employmentType">
+      CONTRACTOR
+     </span>
+     <div class="k-hidden mg:k-inline-flex k-items-center k-gap-1 k-rounded-full k-px-3 k-py-1 k-text-black k-no-underline k-text-caption visited:k-text-black visited:k-no-underline hover:k-text-black hover:k-no-underline k-remote-work-tag k-whitespace-nowrap">
+      <svg aria-hidden="true" class="MuiSvgIcon-root" focus
+===========
+<h2 class="lg:k-w-full k-text-2xl k-font-medium k-font-bold k-text-ellipsis k-overflow-hidden k-whitespace-normal css-1gzvnis" data-tooltip-id="job-title-tooltip-[object Object]">
+ <a class="k-text-black" href="/id-ID/c/leapfroggr-inc/jobs/92646/front-end-developer" itemprop="name">
+  Front End Developer
+ </a>
+</h2>
+
+---
+<div class="k-container k-grid k-grid-cols-1 md:k-grid-cols-2 xl:k-grid-cols-3 k-gap-4 k-mt-8 k-mb-10" itemscope="" itemtype="http://schema.org/ItemList">
+ <style data-emotion="css 1otdiuc">
+  @media (min-width: 1024px){.css-1otdiuc:hover .blur{-webkit-transition:filter 0.3s ease;transition:filter 0.3s ease;-webkit-filter:blur(4px);filter:blur(4px);border-color:#ced9ea;box-shadow:0px 4px 4px 0px rgba(0, 0, 0, 0.25),0px 4px 20px 0px rgba(0, 0, 0, 0.1);}}
+ </style>
+ <div class="k-font-dm-sans k-rounded-lg k-bg-white k-border-solid k-border hover:k-border-2 hover:k-border-primary-color k-border k-group k-flex k-flex-col k-justify-between css-1otdiuc">
+  <div class="k-flex k-p-4 k-gap-2 md:k-gap-4">
+   <div>
+    <a class="k-border k-border-gray k-bg-white k-flex k-items-center k-flex-shrink k-justify-center k-text-4xl k-text-subdued k-overflow-hidden k-px-4 k-py-2 k-h-20 k-w-24 k-rounded-lg" href="/id-ID/c/astro-technologies-indonesia/jobs?source=B2C%20Landing%20Page&amp;action=Company%20Logo&amp;filter=">
+     <div>
+      <img alt="Astro Technologies Indonesia" class="k-block k-max-w-full k-max-h-full k-bg-white k-mx-auto" decoding="async" height="80" loading="eager" src="https://rec-data.kalibrr.com/www.kalibrr.com/logos/PTXVMK7SETESEYXTP58FU8AB4ALSV9SLUXPAVXDL-691aa68d.png" width="130"/>
+     </div>
+    </a>
+   </div>
+   <div class="k-flex-1 k-h-full k-flex k-flex-col k-justify-center">
+    <style data-emotion="css 1gzvnis">
+     .css-1gzvnis{display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+    </style>
+    <h2 class="lg:k-w-full k-text-2xl k-font-medium k-font-bold k-text-ellipsis k-overflow-hidden k-whitespace-normal css-1gzvnis" data-tooltip-id="job-title-tooltip-[object Object]">
+     <a class="k-text-black" href="/id-ID/c/astro-technologies-indonesia/jobs/264007/senior-frontend-engineer-project-based" itemprop="name">
+      Senior Frontend Engineer, Project Based
+     </a>
+    </h2>
+    <span class="k-inline-flex k-items-center k-mb-1">
+     <a class="k-text-subdued k-font-bold" href="/id-ID/c/astro-technologies-indonesia/jobs?source=B2C%20Landing%20Page&amp;action=Company%20Name&amp;filter=All%20Jobs">
+      Astro Technologies Indonesia
+      <span class="k-ml-1">
+       <div class="" style="display:inline" title="verified-business">
+        <svg aria-hidden="true" class="MuiSvgIcon-root k-text-primary-color-500 MuiSvgIcon-fontSizeSmall" focusable="false" height="20" viewbox="0 0 24 24" width="20">
+         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z">
+         </path>
+        </svg>
+       </div>
+      </span>
+     </a>
+    </span>
+   </div>
+   <button class="k-h-0">
+    <svg aria-hidden="true" class="MuiSvgIcon-root k-text-gray-300 k-justify-self-end" focusable="false" viewbox="0 0 24 24">
+     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z">
+     </path>
+    </svg>
+   </button>
+  </div>
+  <div class="k-relative">
+   <div class="blur k-flex k-flex-col k-gap-3 k-px-4 k-pb-4">
+    <span class="k-flex k-gap-4 k-text-gray-300">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z">
+      </path>
+     </svg>
+     <span class="k-text-gray-500 k-block k-pointer-events-none">
+      West Jakarta, Indonesia
+     </span>
+    </span>
+    <span class="k-flex k-gap-4 k-text-gray-300 k-pointer-events-none">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z">
+      </path>
+     </svg>
+     <p class="k-text-gray-500">
+      Gaji Tidak Diumumkan
+     </p>
+    </span>
+    <span class="k-flex k-gap-4 2xl:k-gap-4 k-items-center k-text-gray-300 k-pointer-events-none">
+     <svg aria-hidden="true" class="MuiSvgIcon-root" focusable="false" height="24" viewbox="0 0 24 24" width="24">
+      <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z">
+      </path>
+     </svg>
+     <span class="k-text-gray-500">
+      Pekerja lepas / Freelance
+     </span>
+     <span class="k-hidden" itemprop="employmentType">
+      CONTRACTOR
+     </span>
+     <div class="k-hidden mg:k-inline-flex k-items-center k-gap-1 k-rounded-full k-px-3 k-py-1 k-text-black k-no-underline k-text-caption visited:k-text-black visited:k-no-underline hover:k-text-black hover:k-no-underline k-remote-work-tag k-whitespace-nowrap">
+      <svg aria-hidden="true" class="MuiSvgIcon-root" focus
+===========

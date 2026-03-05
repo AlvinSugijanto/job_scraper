@@ -58,4 +58,4 @@ class WebSocketSearchRequest(BaseModel):
     easy_apply: Optional[bool] = False
     hours_old: Optional[int] = None
     results_wanted: Optional[int] = 25
-    job_portals: Optional[List[str]] = ["linkedin", "jobstreet"]
+    job_portals: Optional[List[str]] = ["linkedin", "jobstreet", "kalibrr"]
