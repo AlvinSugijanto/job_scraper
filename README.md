@@ -1,6 +1,6 @@
-# LinkedIn Job Scraper
+# Web Portal Job Scraper
 
-A full-stack application to scrape and manage job listings from LinkedIn.
+A full-stack application to scrape and manage job listings from multiple web portal (LinkedIn, JobStreet, Glints).
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Python-green)
