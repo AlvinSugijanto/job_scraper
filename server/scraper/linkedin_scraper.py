@@ -69,6 +69,9 @@ async def search_jobs_linkedin(
     session.headers.update(HEADERS)
 
     while len(jobs) < request.results_wanted and start < 1000:
+        if manager and manager.is_cancelled(client_id):
+            break
+
         # Notify: fetching page
         if manager:
             await manager.send_fetching_page(client_id, page, len(jobs))
@@ -129,10 +132,15 @@ async def search_jobs_linkedin(
 
         # Extract jobs from cards
         for i, card in enumerate(job_cards):
+            if manager and manager.is_cancelled(client_id):
+                break
+
             if manager:
                 await manager.send_parsing(client_id, i + 1, len(job_cards))
 
             job = parse_job_card(card, session)
+            await asyncio.sleep(random.uniform(1, 3))
+
             if job and job["id"] not in seen_ids:
                 seen_ids.add(job["id"])
                 combined_text = " ".join(

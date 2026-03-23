@@ -6,21 +6,37 @@ from typing import Dict
 from fastapi import WebSocket
 
 
+import asyncio
+
 class ConnectionManager:
     """Manages WebSocket connections for scraping progress updates."""
 
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
+        self.cancellation_events: Dict[str, asyncio.Event] = {}
 
     async def connect(self, client_id: str, websocket: WebSocket):
         """Accept and store a new WebSocket connection."""
         await websocket.accept()
         self.active_connections[client_id] = websocket
+        self.cancellation_events[client_id] = asyncio.Event()
 
     def disconnect(self, client_id: str):
         """Remove a WebSocket connection."""
         if client_id in self.active_connections:
             del self.active_connections[client_id]
+        if client_id in self.cancellation_events:
+            self.cancellation_events[client_id].set()
+            del self.cancellation_events[client_id]
+
+    def cancel(self, client_id: str):
+        if client_id in self.cancellation_events:
+            self.cancellation_events[client_id].set()
+            
+    def is_cancelled(self, client_id: str) -> bool:
+        if client_id in self.cancellation_events:
+            return self.cancellation_events[client_id].is_set()
+        return True
 
     async def send_progress(self, client_id: str, data: dict):
         """Send progress update to a specific client."""

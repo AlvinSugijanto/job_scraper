@@ -16,9 +16,11 @@ A full-stack application to scrape and manage job listings from multiple web por
 
 ## Screenshots
 
-![Dashboard](public/screenshot.png)
+![Dashboard](public/1.png)
 
-![Job Detail](public/screenshot1.png)
+![Scraping Process](public/2.png)
+
+![Job Detail](public/3.png)
 
 ## Tech Stack
 

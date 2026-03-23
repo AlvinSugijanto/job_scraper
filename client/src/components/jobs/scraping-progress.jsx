@@ -125,13 +125,17 @@ export function useScrapingProgress() {
   );
 
   const cancel = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: "cancel" }));
+      setStatus("scraping");
+      setMessage("Canceling and saving results...");
+    } else {
+      if (wsRef.current) wsRef.current.close();
+      reset();
     }
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
-    reset();
   }, [reset]);
 
   // Cleanup on unmount

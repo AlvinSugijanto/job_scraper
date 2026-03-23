@@ -72,6 +72,9 @@ async def search_jobs_jobstreet(
     session.headers.update(HEADERS)
 
     while len(jobs) < request.results_wanted and page <= 20:
+        if manager and manager.is_cancelled(client_id):
+            break
+
         # Notify: fetching page
         if manager:
             await manager.send_fetching_page(client_id, page, len(jobs))
@@ -120,8 +123,10 @@ async def search_jobs_jobstreet(
         if not job_cards:
             break
 
-        # Extract jobs from cards
         for i, card in enumerate(job_cards):
+            if manager and manager.is_cancelled(client_id):
+                break
+
             if manager:
                 await manager.send_parsing(client_id, i + 1, len(job_cards))
 

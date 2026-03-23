@@ -172,6 +172,19 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         # Notify: started
         await manager.send_started(client_id, f"Searching for '{request.keywords}'...")
 
+        # Background task to listen for cancellation from client
+        async def listen_for_cancel():
+            try:
+                while True:
+                    msg = await websocket.receive_json()
+                    if msg.get("action") == "cancel":
+                        manager.cancel(client_id)
+                        break
+            except Exception:
+                manager.cancel(client_id)
+
+        cancel_task = asyncio.create_task(listen_for_cancel())
+
         # Get existing IDs
         existing_ids = get_existing_job_ids(db)
 
@@ -198,6 +211,9 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
             for portal in portals
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Stop listening for cancel
+        cancel_task.cancel()
 
         # Merge results, skip any that errored
         all_jobs = []
