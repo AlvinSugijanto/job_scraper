@@ -49,18 +49,19 @@ class ConnectionManager:
     async def send_started(self, client_id: str, message: str = "Starting scrape..."):
         await self.send_progress(client_id, {"type": "started", "message": message})
 
-    async def send_fetching_page(self, client_id: str, page: int, jobs_found: int):
+    async def send_fetching_page(self, client_id: str, page: int, jobs_found: int, portal: str = ""):
         await self.send_progress(
-            client_id, {"type": "fetching_page", "page": page, "jobs_found": jobs_found}
+            client_id, {"type": "fetching_page", "page": page, "jobs_found": jobs_found, "portal": portal}
         )
 
-    async def send_rate_limit(self, client_id: str, wait_seconds: int):
+    async def send_rate_limit(self, client_id: str, wait_seconds: int, portal: str = ""):
         await self.send_progress(
             client_id,
             {
                 "type": "rate_limit",
                 "wait_seconds": wait_seconds,
-                "message": f"Rate limited, waiting {wait_seconds}s...",
+                "portal": portal,
+                "message": f"Rate limited on {portal}, waiting {wait_seconds}s..." if portal else f"Rate limited, waiting {wait_seconds}s...",
             },
         )
 

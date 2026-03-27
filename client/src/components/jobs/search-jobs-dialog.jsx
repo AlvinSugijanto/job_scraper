@@ -250,6 +250,8 @@ export function SearchJobsDialog({ onSuccess }) {
             status={scraping.status}
             message={scraping.message}
             progress={scraping.progress}
+            activePortal={scraping.activePortal}
+            portalProgress={scraping.portalProgress}
             countdown={scraping.countdown}
             result={scraping.result}
           />

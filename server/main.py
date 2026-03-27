@@ -211,7 +211,6 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
             for portal in portals
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
         # Stop listening for cancel
         cancel_task.cancel()
 

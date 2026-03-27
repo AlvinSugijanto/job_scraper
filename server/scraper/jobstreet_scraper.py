@@ -77,7 +77,7 @@ async def search_jobs_jobstreet(
 
         # Notify: fetching page
         if manager:
-            await manager.send_fetching_page(client_id, page, len(jobs))
+            await manager.send_fetching_page(client_id, page, len(jobs), portal="Jobstreet")
 
         # Build URL
         keyword_slug = request.keywords.lower().replace(" ", "-")
@@ -106,7 +106,7 @@ async def search_jobs_jobstreet(
             if response.status_code == 429:
                 wait_seconds = 60
                 if manager:
-                    await manager.send_rate_limit(client_id, wait_seconds)
+                    await manager.send_rate_limit(client_id, wait_seconds, portal="Jobstreet")
                 await asyncio.sleep(wait_seconds)
                 continue
 
@@ -389,4 +389,4 @@ if __name__ == "__main__":
     print(f"RESULTS: Found {len(jobs)} jobs")
     print("=" * 60)
 
-    print(f"\nTest completed!")
+    print("\nTest completed!")

@@ -74,7 +74,7 @@ async def search_jobs_linkedin(
 
         # Notify: fetching page
         if manager:
-            await manager.send_fetching_page(client_id, page, len(jobs))
+            await manager.send_fetching_page(client_id, page, len(jobs), portal="LinkedIn")
 
         # Build params
         params = {
@@ -107,7 +107,7 @@ async def search_jobs_linkedin(
                 # Rate limited - notify client
                 wait_seconds = 30
                 if manager:
-                    await manager.send_rate_limit(client_id, wait_seconds)
+                    await manager.send_rate_limit(client_id, wait_seconds, portal="LinkedIn")
                 await asyncio.sleep(wait_seconds)
                 continue
 

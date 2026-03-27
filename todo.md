@@ -1,4 +1,3 @@
--benerin jobstreet_scraper, sekarang masih hardcoded ke indonesia (later)
+-benerin jobstreet_scraper, sekarang masih hardcoded ke indonesia (done)
 -pelajarin indexing di db (https://chatgpt.com/c/69a46d6a-a178-83a0-9955-07f904adceed) (later)
--cek request http dari scraper, apakah async/sync nya sudah benar (later)
--scrape dari kalibrr
+-cek request http dari scraper, apakah async/sync nya sudah benar (done)
