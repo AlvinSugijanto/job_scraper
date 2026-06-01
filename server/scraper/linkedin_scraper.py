@@ -8,6 +8,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from schemas import JobContractType, JobType
 from core import ConnectionManager
 import requests
@@ -60,21 +64,42 @@ async def search_jobs_linkedin(
         on_progress: Async callback function(event_type, data)
                     event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
     """
+    logger.info(
+        f"[LinkedIn] Scraper started | keywords='{request.keywords}' | "
+        f"location='{request.location}' | results_wanted={request.results_wanted} | "
+        f"job_contract={request.job_contract} | job_type={request.job_type} | "
+        f"hours_old={request.hours_old} | easy_apply={request.easy_apply}"
+    )
+
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
     start = 0
     page = 1
+    total_cards_parsed = 0
+    total_cards_skipped_duplicate = 0
+    total_cards_skipped_accuracy = 0
+    rate_limit_hits = 0
+    scrape_start_time = datetime.now()
 
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    while len(jobs) < request.results_wanted and start < 1000:
+    while len(jobs) < request.results_wanted and start < 15:
         if manager and manager.is_cancelled(client_id):
+            logger.info(
+                f"[LinkedIn] Scrape cancelled by client '{client_id}' on page {page}."
+            )
             break
+
+        logger.debug(
+            f"[LinkedIn] Fetching page {page} | start={start} | jobs_collected={len(jobs)}"
+        )
 
         # Notify: fetching page
         if manager:
-            await manager.send_fetching_page(client_id, page, len(jobs), portal="LinkedIn")
+            await manager.send_fetching_page(
+                client_id, page, len(jobs), portal="LinkedIn"
+            )
 
         # Build params
         params = {
@@ -104,17 +129,31 @@ async def search_jobs_linkedin(
             )
 
             if response.status_code == 429:
-                # Rate limited - notify client
+                rate_limit_hits += 1
                 wait_seconds = 30
+                logger.warning(
+                    f"[LinkedIn] Rate limit (429) hit on page {page} "
+                    f"(total hits so far: {rate_limit_hits}). "
+                    f"Waiting {wait_seconds}s before retry..."
+                )
                 if manager:
-                    await manager.send_rate_limit(client_id, wait_seconds, portal="LinkedIn")
+                    await manager.send_rate_limit(
+                        client_id, wait_seconds, portal="LinkedIn"
+                    )
                 await asyncio.sleep(wait_seconds)
                 continue
 
             if response.status_code != 200:
+                logger.error(
+                    f"[LinkedIn] Unexpected HTTP {response.status_code} on page {page}. "
+                    f"Aborting scrape."
+                )
                 break
 
-        except Exception:
+        except Exception as e:
+            logger.error(
+                f"[LinkedIn] Request failed on page {page} | error={type(e).__name__}: {e}"
+            )
             break
 
         # Parse HTML
@@ -122,7 +161,15 @@ async def search_jobs_linkedin(
         job_cards = soup.find_all("div", class_="base-search-card")
 
         if not job_cards:
+            logger.info(
+                f"[LinkedIn] No job cards found on page {page}. End of results."
+            )
             break
+
+        logger.info(
+            f"[LinkedIn] Page {page} | {len(job_cards)} cards found | "
+            f"jobs_collected={len(jobs)}/{request.results_wanted}"
+        )
 
         # Dump raw HTML cards
         from dumps.dumps_to_json import dump_raw_to_json
@@ -131,37 +178,85 @@ async def search_jobs_linkedin(
         dump_raw_to_json(raw_cards, source="linkedin")
 
         # Extract jobs from cards
+        page_new_jobs = 0
         for i, card in enumerate(job_cards):
             if manager and manager.is_cancelled(client_id):
+                logger.info(
+                    f"[LinkedIn] Scrape cancelled mid-page by client '{client_id}' "
+                    f"(card {i + 1}/{len(job_cards)} on page {page})."
+                )
                 break
 
             if manager:
                 await manager.send_parsing(client_id, i + 1, len(job_cards))
 
             job = parse_job_card(card, session)
+            total_cards_parsed += 1
             await asyncio.sleep(random.uniform(1, 3))
 
-            if job and job["id"] not in seen_ids:
-                seen_ids.add(job["id"])
-                combined_text = " ".join(
-                    [
-                        job["description"] or "",
-                        job["title"] or "",
-                        job["location"] or "",
-                    ]
+            if not job:
+                logger.debug(
+                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: failed to parse, skipping."
                 )
-                accuracy = check_accuracy(combined_text, request)
-                if accuracy:
-                    jobs.append(job)
+                total_cards_skipped_duplicate += 1
+                continue
 
-                if len(jobs) >= request.results_wanted:
-                    break
+            if job["id"] in seen_ids:
+                logger.debug(
+                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
+                    f"duplicate job_id='{job['id']}', skipping."
+                )
+                total_cards_skipped_duplicate += 1
+                continue
+
+            seen_ids.add(job["id"])
+            combined_text = " ".join(
+                [
+                    job["description"] or "",
+                    job["title"] or "",
+                    job["location"] or "",
+                ]
+            )
+
+            if not check_accuracy(combined_text, request):
+                logger.debug(
+                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
+                    f"accuracy check failed for job_id='{job['id']}' "
+                    f"(title='{job['title']}'), skipping."
+                )
+                total_cards_skipped_accuracy += 1
+                continue
+
+            jobs.append(job)
+            page_new_jobs += 1
+            logger.debug(
+                f"[LinkedIn] Job accepted | id='{job['id']}' | "
+                f"title='{job['title']}' | company='{job['company']}' | "
+                f"location='{job['location']}' | "
+                f"job_contract={job['job_contract']} | job_type={job['job_type']}"
+            )
+
+            if len(jobs) >= request.results_wanted:
+                logger.info(
+                    f"[LinkedIn] Target of {request.results_wanted} jobs reached on page {page}."
+                )
+                break
+
+        logger.info(
+            f"[LinkedIn] Page {page} done | new_jobs_this_page={page_new_jobs} | "
+            f"total_collected={len(jobs)} | skipped_duplicate={total_cards_skipped_duplicate} | "
+            f"skipped_accuracy={total_cards_skipped_accuracy}"
+        )
 
         # Delay before next page
         start += len(job_cards)
         page += 1
+
         if len(jobs) < request.results_wanted:
             delay = random.uniform(2, 5)
+            logger.debug(
+                f"[LinkedIn] Waiting {delay:.1f}s before fetching next page..."
+            )
             await asyncio.sleep(delay)
 
     # Dump parsed results
@@ -169,6 +264,18 @@ async def search_jobs_linkedin(
         from dumps.dumps_to_json import dump_to_json
 
         dump_to_json(jobs, source="linkedin")
+
+    elapsed = (datetime.now() - scrape_start_time).total_seconds()
+    logger.info(
+        f"[LinkedIn] Scraper finished | "
+        f"pages_fetched={page - 1} | "
+        f"cards_parsed={total_cards_parsed} | "
+        f"jobs_collected={len(jobs)} | "
+        f"skipped_duplicate={total_cards_skipped_duplicate} | "
+        f"skipped_accuracy={total_cards_skipped_accuracy} | "
+        f"rate_limit_hits={rate_limit_hits} | "
+        f"elapsed={elapsed:.1f}s"
+    )
 
     return jobs
 
@@ -210,8 +317,8 @@ def parse_job_card(card, session=None):
         if date_tag and "datetime" in date_tag.attrs:
             try:
                 date_posted = datetime.strptime(date_tag["datetime"], "%Y-%m-%d")
-            except:
-                pass
+            except Exception:
+                logger.debug(f"[LinkedIn] Failed to parse date for job_id='{job_id}'")
 
         job = {
             "id": job_id,
@@ -235,9 +342,9 @@ def parse_job_card(card, session=None):
 
         combined_text = " ".join(
             [
-                job["description"],
-                job["title"],
-                job["location"],
+                job["description"] or "",
+                job["title"] or "",
+                job["location"] or "",
             ]
         )
 
@@ -246,7 +353,8 @@ def parse_job_card(card, session=None):
 
         return job
 
-    except Exception:
+    except Exception as e:
+        logger.debug(f"[LinkedIn] parse_job_card error: {type(e).__name__}: {e}")
         return None
 
 
@@ -255,18 +363,30 @@ def get_job_description(session, job_id):
     try:
         response = session.get(f"{BASE_URL}/jobs/view/{job_id}", timeout=5)
         if response.status_code != 200:
+            logger.debug(
+                f"[LinkedIn] get_job_description: HTTP {response.status_code} "
+                f"for job_id='{job_id}'"
+            )
             return {"description": None}
 
         soup = BeautifulSoup(response.text, "html.parser")
-
         desc_div = soup.find(
             "div", class_=lambda x: x and "show-more-less-html__markup" in x
         )
         description = str(desc_div) if desc_div else None
 
+        if not description:
+            logger.debug(
+                f"[LinkedIn] get_job_description: no description found for job_id='{job_id}'"
+            )
+
         return {"description": description}
 
-    except:
+    except Exception as e:
+        logger.debug(
+            f"[LinkedIn] get_job_description failed for job_id='{job_id}' | "
+            f"{type(e).__name__}: {e}"
+        )
         return {"description": None}
 
 
@@ -274,25 +394,12 @@ def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
     """
     Check if the detected job_contract / job_type from the combined_text
     matches what was requested.
-
-    Args:
-        combined_text: Concatenated description + title + location string.
-        request:       The original search request (has .job_contract and .job_type).
-
-    Returns:
-        {
-            "passed": bool,           # True if all requested filters match
-            "reasons": [str, ...]     # List of mismatch messages (empty when passed)
-        }
     """
-
-    # Check job_contract accuracy
     if request.job_contract:
         detected_contract = JobContractType.detect(combined_text)
         if detected_contract.value != request.job_contract:
             return False
 
-    # Check job_type accuracy
     if request.job_type:
         detected_type = JobType.detect(combined_text)
         if detected_type.value != request.job_type:
@@ -303,6 +410,12 @@ def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
 
 # ============ TESTING ============
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     print("\n" + "=" * 60)
     print("LINKEDIN JOB SCRAPER - TEST MODE")
     print("=" * 60)
@@ -316,12 +429,9 @@ if __name__ == "__main__":
         job_type="remote",
     )
 
-    import asyncio
-
     jobs = asyncio.run(search_jobs_linkedin(request=request))
 
     print(f"\n{'=' * 60}")
     print(f"RESULTS: Found {len(jobs)} jobs")
     print("=" * 60)
-
     print("\nTest completed!")

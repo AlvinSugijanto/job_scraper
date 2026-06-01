@@ -2,6 +2,23 @@
 LinkedIn Job Scraper API
 """
 
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Configure logging to console and scraper.log file with precise date/time
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s",
+    handlers=[
+        RotatingFileHandler("scraper.log", maxBytes=10*1024*1024, backupCount=3, encoding="utf-8"),
+        logging.StreamHandler()
+    ],
+    force=True
+)
+logger = logging.getLogger(__name__)
+logger.info("LinkedIn Job Scraper API starting up...")
+
+
 from scraper import search_jobs_kalibrr
 from scraper import search_jobs_jobstreet
 from fastapi import (
@@ -11,6 +28,7 @@ from fastapi import (
     Depends,
     WebSocket,
     WebSocketDisconnect,
+    BackgroundTasks,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -23,11 +41,12 @@ from scraper import search_jobs_linkedin
 from core import engine, get_db, Base
 from models import Job as JobModel
 from core import manager
-from schemas import StoredJobsResponse, WebSocketSearchRequest
+from schemas import StoredJobsResponse, WebSocketSearchRequest, JobSearchResponse
 from repositories import save_jobs_to_db, get_existing_job_ids
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title="LinkedIn Job Scraper API",
@@ -58,6 +77,81 @@ def root():
     }
 
 
+async def run_background_scrape(request: WebSocketSearchRequest):
+    """
+    Background task helper to perform scraping and database update concurrently.
+    Creates and closes its own db session to avoid thread-safety and lifespan issues.
+    """
+    from core.database import SessionLocal
+    import logging
+
+    logger = logging.getLogger("background_scraper")
+    logger.info(f"Starting background scraping for keywords: '{request.keywords}'")
+    
+    db = SessionLocal()
+    try:
+        # Get existing IDs
+        existing_ids = get_existing_job_ids(db)
+
+        # Map portal key → scraper function
+        portal_scrapers = {
+            "linkedin": search_jobs_linkedin,
+            "jobstreet": search_jobs_jobstreet,
+            "kalibrr": search_jobs_kalibrr,
+        }
+
+        # Filter only valid & selected portals
+        portals = [p for p in (request.job_portals or []) if p in portal_scrapers]
+        if not portals:
+            portals = ["linkedin"]  # fallback
+
+        # Run selected scrapers concurrently without a WebSocket manager
+        tasks = [
+            portal_scrapers[portal](
+                request=request,
+                existing_ids=existing_ids,
+            )
+            for portal in portals
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Merge results, skip any that errored
+        all_jobs = []
+        for portal, result in zip(portals, results):
+            if isinstance(result, Exception):
+                logger.error(f"Error in background scraper for {portal}: {str(result)}")
+            elif result:
+                all_jobs.extend(result)
+
+        # Save new jobs to database
+        new_count = save_jobs_to_db(db, all_jobs, request)
+        logger.info(f"Background scraping completed. Found {len(all_jobs)} total jobs, {new_count} new jobs saved.")
+    except Exception as e:
+        logger.error(f"Error during background scraping execution: {str(e)}")
+    finally:
+        db.close()
+
+
+@app.post("/jobs/scrape")
+async def scrape_jobs(
+    request: WebSocketSearchRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    Trigger scraping lowongan kerja di background secara non-blocking.
+    Mengembalikan respons segera tanpa menunggu proses scraping selesai.
+    """
+    logger.info(f"Triggered scraping via API for keywords: '{request.keywords}' on portals: {request.job_portals}")
+    background_tasks.add_task(run_background_scrape, request)
+    return {
+        "success": True,
+        "status": "processing",
+        "message": f"Scraping task for '{request.keywords}' has been started in the background.",
+        "portals": request.job_portals,
+    }
+
+
+
 @app.get("/jobs/stored", response_model=StoredJobsResponse)
 def get_stored_jobs(
     search: Optional[str] = Query(
@@ -77,6 +171,7 @@ def get_stored_jobs(
     db: Session = Depends(get_db),
 ):
     """Ambil semua jobs yang tersimpan di database."""
+    logger.info(f"API Fetching stored jobs - search: '{search}', type: '{job_type}', contract: '{job_contract}', location: '{location}', source: '{source}'")
     query = db.query(JobModel)
 
     if search:

@@ -8,6 +8,9 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import logging
+logger = logging.getLogger(__name__)
+
 from schemas import JobContractType, JobType
 from core import ConnectionManager
 import requests
@@ -108,6 +111,7 @@ async def search_jobs_kalibrr(
         on_progress: Async callback function(event_type, data)
                     event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
     """
+    logger.info(f"Kalibrr Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'")
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
     page = 1
@@ -117,7 +121,7 @@ async def search_jobs_kalibrr(
 
     # Build URL once (Kalibrr filter ada di path, bukan query params)
     search_url = build_kalibrr_url(request)
-    print(f"[Kalibrr] Search URL: {search_url}")
+    logger.info(f"[Kalibrr] Search URL: {search_url}")
 
     while len(jobs) < request.results_wanted:
         if manager and manager.is_cancelled(client_id):
@@ -138,22 +142,23 @@ async def search_jobs_kalibrr(
                 timeout=10,
             )
 
-            print(f"[Kalibrr] Page {page} status: {response.status_code}")
+            logger.info(f"[Kalibrr] Page {page} status: {response.status_code}")
 
             if response.status_code == 429:
                 # Rate limited - notify client
                 wait_seconds = 30
+                logger.warning(f"[Kalibrr] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying.")
                 if manager:
                     await manager.send_rate_limit(client_id, wait_seconds, portal="Kalibrr")
                 await asyncio.sleep(wait_seconds)
                 continue
 
             if response.status_code != 200:
-                print("[Kalibrr] Non-200 response, stopping.")
+                logger.warning(f"[Kalibrr] Non-200 response ({response.status_code}), stopping.")
                 break
 
         except Exception as e:
-            print(f"[Kalibrr] Request error: {e}")
+            logger.error(f"[Kalibrr] Request error: {e}")
             break
 
         # Parse HTML
@@ -226,6 +231,7 @@ async def search_jobs_kalibrr(
 
         dump_to_json(jobs, source="kalibrr")
 
+    logger.info(f"Kalibrr Scraper finished. Found {len(jobs)} jobs matching criteria.")
     return jobs
 
 

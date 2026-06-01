@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urljoin
 import re
+import logging
+logger = logging.getLogger(__name__)
 
 
 # ============ CONFIG ============
@@ -64,6 +66,7 @@ async def search_jobs_jobstreet(
         on_progress: Async callback function(event_type, data)
                     event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
     """
+    logger.info(f"Jobstreet Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'")
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
     page = 1
@@ -105,15 +108,18 @@ async def search_jobs_jobstreet(
 
             if response.status_code == 429:
                 wait_seconds = 60
+                logger.warning(f"[Jobstreet] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying.")
                 if manager:
                     await manager.send_rate_limit(client_id, wait_seconds, portal="Jobstreet")
                 await asyncio.sleep(wait_seconds)
                 continue
 
             if response.status_code != 200:
+                logger.warning(f"[Jobstreet] Non-200 response ({response.status_code}), stopping.")
                 break
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"[Jobstreet] Request error: {e}")
             break
 
         # Parse HTML → extract job listings from __NEXT_DATA__
@@ -152,6 +158,7 @@ async def search_jobs_jobstreet(
             delay = random.uniform(2, 5)
             await asyncio.sleep(delay)
 
+    logger.info(f"Jobstreet Scraper finished. Found {len(jobs)} jobs matching criteria.")
     return jobs
 
 
@@ -258,7 +265,7 @@ def _extract_job_listings(soup):
 
     cards = soup.find_all("article", attrs={"data-automation": "normalJob"})
     if not cards:
-        print("[DEBUG] No job cards found in HTML")
+        logger.warning("[Jobstreet] No job cards found in HTML")
         return []
 
     # Dump raw HTML cards before parsing
