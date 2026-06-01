@@ -82,7 +82,7 @@ export default function JobsTable({
   };
 
   const handleRowClick = (jobId) => {
-    router.push(`/dashboard/jobs/${jobId}`);
+    window.open(`/dashboard/jobs/${jobId}`, "_blank");
   };
 
   return (
