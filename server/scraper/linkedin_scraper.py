@@ -101,7 +101,9 @@ async def search_jobs_linkedin(
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    while len(jobs) < request.results_wanted and start < 15:
+    max_pages = random.randint(5, 15)
+
+    while len(jobs) < request.results_wanted and page <= max_pages:
         if manager and manager.is_cancelled(client_id):
             logger.info(
                 f"[LinkedIn] Scrape cancelled by client '{client_id}' on page {page}."
