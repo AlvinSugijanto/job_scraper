@@ -5,7 +5,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import Iconify from "../iconify";
 import { fDate } from "@/utils/format-time";
 import { Calendar } from "../ui/calendar";
@@ -48,7 +48,7 @@ const RangeDatePicker = ({ from, to, onChange, showDescription, ...props }) => {
           className={cn(
             "justify-start text-left font-normal w-full border",
             "bg-card hover:dark:bg-gray-700/50",
-            !dateRange?.from && "text-muted-foreground"
+            !dateRange?.from && "text-muted-foreground",
           )}
         >
           <Iconify icon="solar:calendar-bold" className="w-4 h-4" />

@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { getJob, deleteJob } from "@/lib/jobs-api";
+import { getJob, deleteJob } from "@/api/jobs-api";
 import { JobDescription } from "@/components/jobs/job-description";
 import { fDate, fDateTime } from "@/utils/format-time";
 

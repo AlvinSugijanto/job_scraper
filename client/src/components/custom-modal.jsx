@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 const CustomModal = ({ open, setOpen, title, className, children }) => {
   return (

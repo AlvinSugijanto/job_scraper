@@ -12,3 +12,9 @@ SCRAPER TODO :
 2. FILTERS HOOK
 3. CLIENT/SERVER SIDE SORTING
 4. CREATE/EDIT/DELETE DIALOG
+
+
+1. review simple-table
+2. samain config dulu
+3. bikin create/edit modal
+4. benerin api call pakai useApi()

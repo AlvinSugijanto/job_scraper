@@ -13,17 +13,19 @@ router = APIRouter(
 
 
 @router.get("")
-def get_banned_keywords(
+def get(
     search: Optional[str] = Query(None, description="Search by keyword value"),
     sort_by: Optional[str] = Query(
         "keyword", description="Sort by field: keyword, created_at"
     ),
     sort_order: Optional[str] = Query("asc", description="Sort order: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(10, ge=1, le=10000, alias="perPage", description="Items per page"),
+    per_page: int = Query(
+        10, ge=1, le=10000, alias="perPage", description="Items per page"
+    ),
     db: Session = Depends(get_db),
 ):
-    """Mendapatkan semua banned keywords dengan pagination."""
+    """GET /api/v1/banned-keywords"""
     return banned_keyword_service.get_keywords(
         db,
         search=search,
@@ -35,12 +37,12 @@ def get_banned_keywords(
 
 
 @router.post("")
-def add_banned_keyword(keyword_in: BannedKeywordCreate, db: Session = Depends(get_db)):
-    """Menambahkan keyword baru ke dalam daftar banned list."""
+def create(keyword_in: BannedKeywordCreate, db: Session = Depends(get_db)):
+    """POST /api/v1/banned-keywords"""
     return banned_keyword_service.create_keyword(db, keyword_in.keyword)
 
 
 @router.delete("/{keyword_id}")
-def delete_banned_keyword(keyword_id: int, db: Session = Depends(get_db)):
-    """Menghapus keyword dari daftar banned list berdasarkan ID."""
+def delete(keyword_id: int, db: Session = Depends(get_db)):
+    """DELETE /api/v1/banned-keywords/{keyword_id}"""
     return banned_keyword_service.delete_keyword(db, keyword_id)

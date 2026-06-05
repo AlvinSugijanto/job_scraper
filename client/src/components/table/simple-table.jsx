@@ -217,8 +217,6 @@ export function Pagination({
  * @param {number}   [props.defaultPageSize]  - aktifkan client-side pagination
  * @param {number[]} [props.pageSizeOptions]
  * @param {boolean}  [props.selectable]        - tampilkan kolom checkbox
- * @param {Array}    [props.selectedRows]      - array of selected row objects (controlled)
- * @param {Function} [props.onSelectionChange] - callback (newSelectedRows) => void
  * @param {string}   [props.rowKey]            - key unik tiap row, default "id"
  * @param {Object}   [props.sortConfig]        - { key: string, direction: 'asc'|'desc' }
  * @param {Function} [props.onSort]            - callback (columnKey) => void
@@ -233,8 +231,6 @@ export function SimpleTable({
   pageSizeOptions = [5, 10, 25, 50, 100],
   columnProps = {}, // extra props diteruskan ke render function sebagai arg ke-3
   selectable = false,
-  selectedRows = [],
-  onSelectionChange = () => {},
   rowKey = "id",
   sortConfig = null, // { key: "column_key", direction: "asc" | "desc" }
   onSort = null, // (columnKey) => void
@@ -271,101 +267,53 @@ export function SimpleTable({
   const rows = isClientPaginated ? visibleData : data;
 
   // ── Checkbox helpers ──
-  const selectedKeys = useMemo(
-    () => new Set(selectedRows.map((r) => r[rowKey])),
-    [selectedRows, rowKey],
-  );
-
-  const isRowSelected = (row) => {
-    if (selectedIds) {
-      return selectedIds.has(row[rowKey]);
-    }
-    return selectedKeys.has(row[rowKey]);
-  };
-
-  const toggleRow = (e, row) => {
-    e.stopPropagation();
-    const key = row[rowKey];
-    const next = isRowSelected(row)
-      ? selectedRows.filter((r) => r[rowKey] !== key)
-      : [...selectedRows, row];
-    onSelectionChange(next);
-  };
-
-  const allVisibleSelected =
-    rows.length > 0 && rows.every((r) => isRowSelected(r));
-  const someVisibleSelected =
-    rows.some((r) => isRowSelected(r)) && !allVisibleSelected;
-
-  const toggleAll = () => {
-    if (allVisibleSelected) {
-      // deselect semua visible rows
-      const visibleKeys = new Set(rows.map((r) => r[rowKey]));
-      onSelectionChange(
-        selectedRows.filter((r) => !visibleKeys.has(r[rowKey])),
-      );
-    } else {
-      // tambahkan semua visible rows yang belum dipilih
-      const newRows = rows.filter((r) => !isRowSelected(r));
-      onSelectionChange([...selectedRows, ...newRows]);
-    }
-  };
+  const isRowSelected = (row) => selectedIds?.has(row[rowKey]) ?? false;
 
   const totalItems = activePaginationProps?.totalItems ?? rows.length;
   const isAllSelected =
     rows.length > 0 &&
     selectedIds &&
-    (selectedIds.size === rows.length || selectedIds.size === totalItems);
+    (selectedIds.size === rows.length || selectedIds.size === totalItems)
+      ? true
+      : false;
 
   return (
     <div className="flex flex-col gap-0 rounded-md border overflow-hidden">
       <Table>
         <TableHeader className={"bg-background"}>
           <TableRow className="border-border">
-            {selectable &&
-              (selectedIds ? (
-                <TableHead className="w-[70px]">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <div className="flex items-center gap-1 px-3 py-2 cursor-pointer hover:bg-muted/50 rounded-sm">
-                        <Checkbox
-                          checked={isAllSelected}
-                          className="pointer-events-none"
-                          aria-hidden
-                        />
-                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={onSelectPage}>
-                        Select This Page ({rows.length})
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={onSelectAll}>
-                        Select All Rows ({totalItems})
-                      </DropdownMenuItem>
-                      {selectedIds.size > 0 && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={onClearSelection}>
-                            Clear Selection
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableHead>
-              ) : (
-                <TableHead className="w-10 text-center">
-                  <Checkbox
-                    checked={
-                      allVisibleSelected ||
-                      (someVisibleSelected ? "indeterminate" : false)
-                    }
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all rows"
-                  />
-                </TableHead>
-              ))}
+            {selectable && (
+              <TableHead className="w-[70px]">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-1 px-3 py-2 cursor-pointer hover:bg-muted/50 rounded-sm">
+                      <Checkbox
+                        checked={isAllSelected}
+                        className="pointer-events-none"
+                        aria-hidden
+                      />
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={onSelectPage}>
+                      Select This Page ({rows.length})
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onSelectAll}>
+                      Select All Rows ({totalItems})
+                    </DropdownMenuItem>
+                    {selectedIds && selectedIds.size > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={onClearSelection}>
+                          Clear Selection
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableHead>
+            )}
             {columns.map((col) => {
               const isSortable = col.sortable && onSort;
               const isActiveSort = sortConfig && sortConfig.key === col.key;
@@ -434,36 +382,21 @@ export function SimpleTable({
                 }
                 onClick={() => onClick(row)}
               >
-                {selectable &&
-                  (selectedIds ? (
-                    <TableCell
-                      className="w-[70px]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        checked={selectedIds.has(row[rowKey])}
-                        onCheckedChange={(checked) =>
-                          onSelectOne(row[rowKey], checked)
-                        }
-                        aria-label={`Select row ${rowIndex + 1}`}
-                        className="ml-3"
-                      />
-                    </TableCell>
-                  ) : (
-                    <TableCell
-                      className="w-10 text-center"
-                      onClick={(e) => toggleRow(e, row)}
-                    >
-                      <Checkbox
-                        checked={isRowSelected(row)}
-                        onCheckedChange={(checked) => {
-                          const e = { stopPropagation: () => {} };
-                          toggleRow(e, row);
-                        }}
-                        aria-label={`Select row ${rowIndex + 1}`}
-                      />
-                    </TableCell>
-                  ))}
+                {selectable && (
+                  <TableCell
+                    className="w-[70px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selectedIds ? selectedIds.has(row[rowKey]) : false}
+                      onCheckedChange={(checked) =>
+                        onSelectOne?.(row[rowKey], checked)
+                      }
+                      aria-label={`Select row ${rowIndex + 1}`}
+                      className="ml-3"
+                    />
+                  </TableCell>
+                )}
                 {columns.map((col) => (
                   <TableCell
                     key={String(col.key)}

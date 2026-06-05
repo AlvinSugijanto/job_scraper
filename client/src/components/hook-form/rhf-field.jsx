@@ -16,7 +16,7 @@ import {
   FieldDescription,
   FieldError,
 } from "@/components/ui/field";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 export function RHFInput({
   name,

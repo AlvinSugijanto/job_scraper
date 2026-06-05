@@ -27,7 +27,7 @@ def get_companies(
     return {
         "success": True,
         "total": total,
-        "companies": [c.to_dict() for c in companies],
+        "data": [c.to_dict() for c in companies],
     }
 
 
@@ -38,7 +38,7 @@ def create_company(db: Session, name: str):
         raise HTTPException(status_code=400, detail="Company already in banned list")
 
     db_company = banned_company_repo.create(db, name)
-    return {"success": True, "company": db_company.to_dict()}
+    return {"success": True, "data": db_company.to_dict()}
 
 
 def delete_company(db: Session, company_id: int):

@@ -20,10 +20,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
-import { getStoredJobs } from "@/lib/jobs-api";
+import { getStoredJobs } from "@/api/jobs-api";
 import { SimpleTable, usePagination } from "@/components/table/simple-table";
 import { JobsFilters } from "./jobs-filters";
-import { exportToCSV } from "@/utils/export-csv";
+import { exportJobsToCSV } from "@/utils/export-csv";
 import { useFilters } from "@/hooks/use-filters";
 import { Badge } from "@/components/ui/badge";
 import { fDate, fDateTime } from "@/utils/format-time";
@@ -146,7 +146,7 @@ export default function JobsView() {
     }
 
     const timestamp = new Date().toISOString().split("T")[0];
-    exportToCSV(jobsToExport, `jobs_export_${timestamp}.csv`);
+    exportJobsToCSV(jobsToExport, `jobs_export_${timestamp}.csv`);
     toast.success(`Exported ${jobsToExport.length} jobs to CSV`);
   };
 

@@ -18,7 +18,6 @@ export function useFilters({ initialFilters = {}, resetPage } = {}) {
 
   const syncToUrl = useCallback(
     (updates) => {
-      console.log(updates);
       const params = new URLSearchParams(searchParams.toString());
       Object.entries(updates).forEach(([key, value]) => {
         if (value === null || value === undefined || value === "") {

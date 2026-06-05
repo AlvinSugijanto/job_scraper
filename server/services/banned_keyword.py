@@ -27,7 +27,7 @@ def get_keywords(
     return {
         "success": True,
         "total": total,
-        "keywords": [k.to_dict() for k in keywords],
+        "data": [k.to_dict() for k in keywords],
     }
 
 
@@ -38,7 +38,7 @@ def create_keyword(db: Session, keyword: str):
         raise HTTPException(status_code=400, detail="Keyword already in banned list")
 
     db_keyword = banned_keyword_repo.create(db, keyword)
-    return {"success": True, "keyword": db_keyword.to_dict()}
+    return {"success": True, "data": db_keyword.to_dict()}
 
 
 def delete_keyword(db: Session, keyword_id: int):

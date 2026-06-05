@@ -10,7 +10,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 /**
  * Auto generates breadcrumb from current pathname
@@ -85,7 +85,7 @@ function BreadcrumbLink({ href, children, className, ...props }) {
       href={href}
       className={cn(
         "text-sm font-medium text-muted-foreground hover:text-foreground transition-colors",
-        className
+        className,
       )}
       {...props}
     >

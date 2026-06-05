@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Iconify from "@/components/iconify";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 export default function TableList({
   columns,
@@ -85,7 +85,7 @@ export default function TableList({
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         )}
                     {{
                       asc: (
@@ -114,7 +114,7 @@ export default function TableList({
                       data-state={row.getIsSelected() && "selected"}
                       className={cn(
                         rowClassName,
-                        rowClassNameProps(row.original)
+                        rowClassNameProps(row.original),
                       )}
                       onClick={() => onRowClick?.(row.original)}
                     >
@@ -126,7 +126,7 @@ export default function TableList({
                         >
                           {flexRender(
                             cell.column.columnDef.cell,
-                            cell.getContext()
+                            cell.getContext(),
                           )}
                         </TableCell>
                       ))}
@@ -183,7 +183,7 @@ export default function TableList({
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

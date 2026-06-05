@@ -1,7 +1,7 @@
 "use client";
 
 import ReactSelect from "react-select";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 /**
  * MultiSelect component berbasis react-select, dengan styling
