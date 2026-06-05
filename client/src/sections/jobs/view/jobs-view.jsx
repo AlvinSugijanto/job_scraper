@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
-import { getStoredJobs } from "@/api/jobs-api";
+import { useApi } from "@/hooks/use-api";
 import { SimpleTable, usePagination } from "@/components/table/simple-table";
 import { JobsFilters } from "./jobs-filters";
 import { exportJobsToCSV } from "@/utils/export-csv";
@@ -32,14 +32,13 @@ import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 const PAGE_SIZE = 10;
 
 export default function JobsView() {
-  const [jobs, setJobs] = useState([]);
   const [allJobs, setAllJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [total, setTotal] = useState(0);
+  const [selectedRows, setSelectedRows] = useState(new Set());
+
+  const { data: jobs, call, loading } = useApi();
 
   const { page, pageSize, setPage, paginationProps } = usePagination({
-    totalItems: total,
+    totalItems: jobs?.total,
     initialPageSize: PAGE_SIZE,
   });
 
@@ -59,29 +58,21 @@ export default function JobsView() {
   const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
 
   const fetchJobs = async () => {
-    setLoading(true);
-    try {
-      const { jobs, total } = await getStoredJobs({
-        search: filters.q || undefined,
-        jobType: filters.job_type === "all" ? undefined : filters.job_type,
-        jobContract:
-          filters.job_contract === "all" ? undefined : filters.job_contract,
-        jobPortal:
-          filters.job_portal === "all" ? undefined : filters.job_portal,
-        location: filters.location || undefined,
-        sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder,
-        page,
-        perPage: pageSize,
-      });
+    const params = new URLSearchParams();
+    if (filters.q) params.append("search", filters.q);
+    if (filters.job_type && filters.job_type !== "all")
+      params.append("job_type", filters.job_type);
+    if (filters.job_contract && filters.job_contract !== "all")
+      params.append("job_contract", filters.job_contract);
+    if (filters.job_portal && filters.job_portal !== "all")
+      params.append("source", filters.job_portal);
+    if (filters.location) params.append("location", filters.location);
+    if (filters.sortBy) params.append("sort_by", filters.sortBy);
+    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
+    params.append("page", page.toString());
+    params.append("perPage", pageSize.toString());
 
-      setJobs(jobs);
-      setTotal(total);
-    } catch (error) {
-      toast.error("Failed to fetch jobs");
-    } finally {
-      setLoading(false);
-    }
+    call(`/api/v1/jobs/stored?${params}`);
   };
 
   // Refetch when page, pageSize, or filters change
@@ -91,54 +82,56 @@ export default function JobsView() {
 
   // Clear selection when jobs change
   useEffect(() => {
-    setSelectedIds(new Set());
+    setSelectedRows(new Set());
     setAllJobs([]);
-  }, [jobs]);
+  }, [jobs?.jobs]);
 
   // Selection handlers
   const handleSelectPage = () => {
-    setSelectedIds(new Set(jobs.map((job) => job.id)));
+    setSelectedRows(new Set(jobs?.jobs?.map((job) => job.id)));
   };
 
   const handleSelectAll = async () => {
+    const params = new URLSearchParams();
+    if (filters.q) params.append("search", filters.q);
+    if (filters.job_type && filters.job_type !== "all")
+      params.append("job_type", filters.job_type);
+    if (filters.job_contract && filters.job_contract !== "all")
+      params.append("job_contract", filters.job_contract);
+    if (filters.job_portal && filters.job_portal !== "all")
+      params.append("source", filters.job_portal);
+    if (filters.location) params.append("location", filters.location);
+    params.append("perPage", "10000");
+
     try {
-      const data = await getStoredJobs({
-        search: filters.q || undefined,
-        jobType: filters.job_type === "all" ? undefined : filters.job_type,
-        jobContract:
-          filters.job_contract === "all" ? undefined : filters.job_contract,
-        jobPortal:
-          filters.job_portal === "all" ? undefined : filters.job_portal,
-        location: filters.location || undefined,
-        perPage: 10000,
-      });
-      setSelectedIds(new Set(data.jobs.map((job) => job.id)));
-      setAllJobs(data.jobs);
-      toast.success(`Selected all ${data.jobs.length} jobs`);
+      const { jobs } = await call(`/api/v1/jobs/stored?${params}`);
+      setSelectedRows(new Set((jobs || []).map((job) => job.id)));
+      setAllJobs(jobs || []);
+      toast.success(`Selected all ${jobs?.length ?? 0} jobs`);
     } catch (error) {
       toast.error("Failed to select all jobs");
     }
   };
 
   const handleClearSelection = () => {
-    setSelectedIds(new Set());
+    setSelectedRows(new Set());
     setAllJobs([]);
   };
 
   const handleSelectOne = (jobId, checked) => {
-    const newSelected = new Set(selectedIds);
+    const newSelected = new Set(selectedRows);
     if (checked) {
       newSelected.add(jobId);
     } else {
       newSelected.delete(jobId);
     }
-    setSelectedIds(newSelected);
+    setSelectedRows(newSelected);
   };
 
   // Export handler
   const handleExport = () => {
-    const sourceJobs = allJobs.length > 0 ? allJobs : jobs;
-    const jobsToExport = sourceJobs.filter((job) => selectedIds.has(job.id));
+    const sourceJobs = allJobs.length > 0 ? allJobs : jobs?.jobs || [];
+    const jobsToExport = sourceJobs.filter((job) => selectedRows.has(job.id));
 
     if (jobsToExport.length === 0) {
       toast.error("Please select at least one job to export");
@@ -271,10 +264,10 @@ export default function JobsView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
+          {selectedRows.size > 0 && (
             <Button variant="outline" onClick={handleExport}>
               <Download className="mr-2 h-4 w-4" />
-              Export ({selectedIds.size})
+              Export ({selectedRows.size})
             </Button>
           )}
           <SearchJobsDialog onSuccess={() => fetchJobs()} />
@@ -288,11 +281,11 @@ export default function JobsView() {
 
       <SimpleTable
         columns={columns}
-        data={jobs}
+        data={jobs?.jobs || []}
         isLoading={loading}
         onClick={handleRowClick}
         selectable
-        selectedIds={selectedIds}
+        selectedIds={selectedRows}
         onSelectPage={handleSelectPage}
         onSelectAll={handleSelectAll}
         onClearSelection={handleClearSelection}
@@ -301,41 +294,6 @@ export default function JobsView() {
         onSort={handleSort}
         paginationProps={paginationProps}
       />
-      {/* <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Saved Jobs</CardTitle>
-              <CardDescription>
-                Select jobs to export. Click headers to sort.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : jobs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Briefcase className="h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-semibold">No jobs found</h3>
-              <p className="text-muted-foreground">
-                {filters.q
-                  ? "Try a different search term"
-                  : 'Click "Search Jobs" to scrape new jobs from LinkedIn'}
-              </p>
-            </div>
-          ) : (
-           
-          )}
-        </CardContent>
-      </Card> */}
     </div>
   );
 }
