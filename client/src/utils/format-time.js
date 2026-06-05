@@ -23,13 +23,23 @@ export function fTime(date, newFormat) {
 }
 
 export function fDateTime(date, newFormat) {
-  const fm = newFormat || "dd MMM yyyy HH:mm a";
+  const fm = newFormat || "dd MMM yyyy HH:mm";
 
   return date ? format(new Date(date), fm) : "";
 }
 
 export function fYear(date) {
   return date ? format(new Date(date), "yyyy") : "";
+}
+
+/**
+ * Convert a UTC+0 date/string to UTC+7 (WIB).
+ * Returns a new Date object shifted by +7 hours.
+ */
+export function toUTC7(date) {
+  if (!date) return null;
+  const utc = new Date(date);
+  return new Date(utc.getTime() + 7 * 60 * 60 * 1000);
 }
 
 export function fTimestamp(date) {

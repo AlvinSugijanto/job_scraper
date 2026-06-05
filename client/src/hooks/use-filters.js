@@ -52,16 +52,14 @@ export function useFilters({ initialFilters = {}, resetPage } = {}) {
 
   const handleSort = useCallback(
     (key) => {
-      setFiltersState((prev) => {
-        const newDirection =
-          prev.sortBy === key && prev.sortOrder === "asc" ? "desc" : "asc";
-        const updates = { sortBy: key, sortOrder: newDirection };
-        resetPage?.();
-        syncToUrl({ ...updates, page: 0 });
-        return { ...prev, ...updates };
-      });
+      const newDirection =
+        filters.sortBy === key && filters.sortOrder === "asc" ? "desc" : "asc";
+      const updates = { sortBy: key, sortOrder: newDirection };
+      setFiltersState((prev) => ({ ...prev, ...updates }));
+      resetPage?.();
+      syncToUrl({ ...updates, page: 0 });
     },
-    [resetPage, syncToUrl],
+    [filters.sortBy, filters.sortOrder, resetPage, syncToUrl],
   );
 
   return {

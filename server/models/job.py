@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from schemas import JobContractType, JobType
+from enums import JobContractType, JobType
 from sqlalchemy import Column, String, Text, DateTime, Enum as SQLEnum
 from datetime import datetime
 

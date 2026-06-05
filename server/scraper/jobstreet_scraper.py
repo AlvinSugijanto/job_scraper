@@ -2,7 +2,9 @@
 JobStreet Job Scraper - Core Functions
 """
 
-from schemas import WebSocketSearchRequest, JobContractType, JobType
+from schemas import WebSocketSearchRequest
+
+from enums import JobContractType, JobType
 from core import ConnectionManager
 import requests
 import random
@@ -13,6 +15,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urljoin
 import re
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -66,7 +69,9 @@ async def search_jobs_jobstreet(
         on_progress: Async callback function(event_type, data)
                     event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
     """
-    logger.info(f"Jobstreet Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'")
+    logger.info(
+        f"Jobstreet Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'"
+    )
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
     page = 1
@@ -80,7 +85,9 @@ async def search_jobs_jobstreet(
 
         # Notify: fetching page
         if manager:
-            await manager.send_fetching_page(client_id, page, len(jobs), portal="Jobstreet")
+            await manager.send_fetching_page(
+                client_id, page, len(jobs), portal="Jobstreet"
+            )
 
         # Build URL
         keyword_slug = request.keywords.lower().replace(" ", "-")
@@ -108,14 +115,20 @@ async def search_jobs_jobstreet(
 
             if response.status_code == 429:
                 wait_seconds = 60
-                logger.warning(f"[Jobstreet] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying.")
+                logger.warning(
+                    f"[Jobstreet] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying."
+                )
                 if manager:
-                    await manager.send_rate_limit(client_id, wait_seconds, portal="Jobstreet")
+                    await manager.send_rate_limit(
+                        client_id, wait_seconds, portal="Jobstreet"
+                    )
                 await asyncio.sleep(wait_seconds)
                 continue
 
             if response.status_code != 200:
-                logger.warning(f"[Jobstreet] Non-200 response ({response.status_code}), stopping.")
+                logger.warning(
+                    f"[Jobstreet] Non-200 response ({response.status_code}), stopping."
+                )
                 break
 
         except Exception as e:
@@ -158,7 +171,9 @@ async def search_jobs_jobstreet(
             delay = random.uniform(2, 5)
             await asyncio.sleep(delay)
 
-    logger.info(f"Jobstreet Scraper finished. Found {len(jobs)} jobs matching criteria.")
+    logger.info(
+        f"Jobstreet Scraper finished. Found {len(jobs)} jobs matching criteria."
+    )
     return jobs
 
 

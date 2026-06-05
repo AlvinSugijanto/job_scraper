@@ -1,4 +1,4 @@
-import { Briefcase, Search } from "lucide-react";
+import { Briefcase, Settings } from "lucide-react";
 
 const NavigationsList = () => {
   return [
@@ -6,6 +6,11 @@ const NavigationsList = () => {
       name: "Jobs",
       url: "/dashboard/jobs",
       icon: Briefcase,
+    },
+    {
+      name: "Config",
+      url: "/dashboard/config",
+      icon: Settings,
     },
   ];
 };

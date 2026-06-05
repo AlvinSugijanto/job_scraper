@@ -21,8 +21,8 @@ export async function getStoredJobs({
   location,
   sortBy,
   sortOrder,
-  skip = 0,
-  limit = 25,
+  page = 1,
+  perPage = 25,
 } = {}) {
   const params = new URLSearchParams();
   if (search) params.append("search", search);
@@ -31,8 +31,8 @@ export async function getStoredJobs({
   if (location) params.append("location", location);
   if (sortBy) params.append("sort_by", sortBy);
   if (sortOrder) params.append("sort_order", sortOrder);
-  params.append("skip", skip.toString());
-  params.append("limit", limit.toString());
+  params.append("page", page.toString());
+  params.append("perPage", perPage.toString());
 
   const response = await fetch(`/api/jobs/stored?${params}`);
 

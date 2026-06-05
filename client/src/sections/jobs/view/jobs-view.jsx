@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Briefcase, Download } from "lucide-react";
+import {
+  Briefcase,
+  Download,
+  MapPin,
+  Calendar,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -15,27 +21,27 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { getStoredJobs } from "@/lib/jobs-api";
-import JobsTable from "./jobs-table";
+import { SimpleTable, usePagination } from "@/components/table/simple-table";
 import { JobsFilters } from "./jobs-filters";
 import { exportToCSV } from "@/utils/export-csv";
 import { useFilters } from "@/hooks/use-filters";
-import { usePagination } from "@/hooks/use-pagination";
+import { Badge } from "@/components/ui/badge";
+import { fDate, fDateTime } from "@/utils/format-time";
+import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 
 const PAGE_SIZE = 10;
 
 export default function JobsView() {
-  const {
-    page,
-    total,
-    setTotal,
-    handlePageChange,
-    resetPage,
-    totalPages,
-    startItem,
-    endItem,
-    hasPrevious,
-    hasNext,
-  } = usePagination({ pageSize: PAGE_SIZE });
+  const [jobs, setJobs] = useState([]);
+  const [allJobs, setAllJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [total, setTotal] = useState(0);
+
+  const { page, pageSize, setPage, paginationProps } = usePagination({
+    totalItems: total,
+    initialPageSize: PAGE_SIZE,
+  });
 
   const { filters, setFilters, handleSort } = useFilters({
     initialFilters: {
@@ -47,19 +53,12 @@ export default function JobsView() {
       sortBy: "created_at",
       sortOrder: "desc",
     },
-    resetPage,
+    resetPage: () => setPage(1),
   });
 
   const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
 
-  const [jobs, setJobs] = useState([]);
-  const [allJobs, setAllJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-
-  const fetchJobs = async (shouldResetPage = false) => {
-    const currentPage = shouldResetPage ? 0 : page;
-    if (shouldResetPage) resetPage();
+  const fetchJobs = async () => {
     setLoading(true);
     try {
       const { jobs, total } = await getStoredJobs({
@@ -72,8 +71,8 @@ export default function JobsView() {
         location: filters.location || undefined,
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
-        skip: currentPage * PAGE_SIZE,
-        limit: PAGE_SIZE,
+        page,
+        perPage: pageSize,
       });
 
       setJobs(jobs);
@@ -85,10 +84,10 @@ export default function JobsView() {
     }
   };
 
-  // Refetch when page or filters change
+  // Refetch when page, pageSize, or filters change
   useEffect(() => {
     fetchJobs();
-  }, [page, filters]);
+  }, [page, pageSize, filters]);
 
   // Clear selection when jobs change
   useEffect(() => {
@@ -105,7 +104,13 @@ export default function JobsView() {
     try {
       const data = await getStoredJobs({
         search: filters.q || undefined,
-        limit: 10000,
+        jobType: filters.job_type === "all" ? undefined : filters.job_type,
+        jobContract:
+          filters.job_contract === "all" ? undefined : filters.job_contract,
+        jobPortal:
+          filters.job_portal === "all" ? undefined : filters.job_portal,
+        location: filters.location || undefined,
+        perPage: 10000,
       });
       setSelectedIds(new Set(data.jobs.map((job) => job.id)));
       setAllJobs(data.jobs);
@@ -145,6 +150,116 @@ export default function JobsView() {
     toast.success(`Exported ${jobsToExport.length} jobs to CSV`);
   };
 
+  // Row click → open job detail in new tab
+  const handleRowClick = (row) => {
+    window.open(`/dashboard/jobs/${row.id}`, "_blank");
+  };
+
+  // ── Column definitions ──
+  const columns = [
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Badge variant="default" className="capitalize w-[60px]">
+            {JOB_TYPE.find((t) => t.value === row.job_type)?.label ?? "-"}
+          </Badge>
+          <span className="line-clamp-1 font-medium">{row.title}</span>
+        </div>
+      ),
+    },
+    {
+      key: "job_contract",
+      label: "Contract",
+      sortable: true,
+      render: (row) => (
+        <span className="capitalize">
+          {JOB_CONTRACT.find((c) => c.value === row.job_contract)?.label ?? "-"}
+        </span>
+      ),
+    },
+    {
+      key: "company",
+      label: "Company",
+      sortable: true,
+    },
+    {
+      key: "location",
+      label: "Location",
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="line-clamp-1">{row.location}</span>
+        </div>
+      ),
+    },
+    {
+      key: "salary",
+      label: "Salary",
+      sortable: true,
+      render: (row) =>
+        row.salary ? (
+          <Badge variant="default">{row.salary}</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
+      key: "source",
+      label: "Source",
+      sortable: true,
+      render: (row) =>
+        JOB_PORTALS.find((c) => c.value === row.source)?.label ?? "-",
+    },
+    {
+      key: "date_posted",
+      label: "Posted",
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm">{fDate(row.date_posted) || "-"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "created_at",
+      label: "Searched At",
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm" title={fDateTime(row.created_at)}>
+            {fDate(row.created_at) || "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      className: "w-[80px]",
+      render: (row) => (
+        <div
+          className="flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => window.open(row.job_url, "_blank")}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -162,12 +277,31 @@ export default function JobsView() {
               Export ({selectedIds.size})
             </Button>
           )}
-          <SearchJobsDialog onSuccess={() => fetchJobs(true)} />
+          <SearchJobsDialog onSuccess={() => fetchJobs()} />
         </div>
       </div>
 
       {/* Jobs Table Card */}
-      <Card>
+      <div className="flex justify-end">
+        <JobsFilters filters={filters} onFiltersChange={setFilters} />
+      </div>
+
+      <SimpleTable
+        columns={columns}
+        data={jobs}
+        isLoading={loading}
+        onClick={handleRowClick}
+        selectable
+        selectedIds={selectedIds}
+        onSelectPage={handleSelectPage}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+        onSelectOne={handleSelectOne}
+        sortConfig={sortConfig}
+        onSort={handleSort}
+        paginationProps={paginationProps}
+      />
+      {/* <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -177,7 +311,6 @@ export default function JobsView() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <JobsFilters filters={filters} onFiltersChange={setFilters} />
             </div>
           </div>
         </CardHeader>
@@ -199,27 +332,10 @@ export default function JobsView() {
               </p>
             </div>
           ) : (
-            <JobsTable
-              jobs={jobs}
-              total={total}
-              selectedIds={selectedIds}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              onSelectPage={handleSelectPage}
-              onSelectAll={handleSelectAll}
-              onClearSelection={handleClearSelection}
-              onSelectOne={handleSelectOne}
-              page={page}
-              totalPages={totalPages}
-              startItem={startItem}
-              endItem={endItem}
-              hasPrevious={hasPrevious}
-              hasNext={hasNext}
-              onPageChange={handlePageChange}
-            />
+           
           )}
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

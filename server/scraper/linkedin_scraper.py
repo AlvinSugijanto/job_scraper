@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from schemas import JobContractType, JobType
+from enums import JobContractType, JobType
 from core import ConnectionManager
 import requests
 import random
@@ -20,6 +20,7 @@ import asyncio
 from datetime import datetime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
+from repositories import banned_company
 
 
 # ============ CONFIG ============
@@ -73,6 +74,22 @@ async def search_jobs_linkedin(
 
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
+
+    # Load banned companies from database
+    try:
+        from core.database import SessionLocal
+
+        db = SessionLocal()
+        banned_companies = banned_company.getAll(db)
+        banned_names = {c.name.strip().lower() for c in banned_companies}
+        db.close()
+        logger.info(
+            f"[LinkedIn] Loaded {len(banned_names)} banned companies from database."
+        )
+    except Exception as e:
+        logger.error(f"[LinkedIn] Failed to load banned companies from DB: {e}")
+        banned_names = set()
+
     start = 0
     page = 1
     total_cards_parsed = 0
@@ -120,6 +137,11 @@ async def search_jobs_linkedin(
         if request.hours_old:
             params["f_TPR"] = f"r{request.hours_old * 3600}"
 
+        query_string = "&".join([f"{key}={value}" for key, value in params.items()])
+        print(
+            "url",
+            f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search?{query_string}",
+        )
         # Make request
         try:
             response = session.get(
@@ -200,6 +222,15 @@ async def search_jobs_linkedin(
                 )
                 total_cards_skipped_duplicate += 1
                 continue
+
+            if job.get("company"):
+                company_clean = job["company"].strip().lower()
+                if company_clean in banned_names:
+                    logger.info(
+                        f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
+                        f"company '{job['company']}' is in banned list, skipping."
+                    )
+                    continue
 
             if job["id"] in seen_ids:
                 logger.debug(

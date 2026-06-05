@@ -2,25 +2,20 @@
 Schemas package - LinkedIn job scraper
 """
 
-from .schemas import (
+from .job import (
     Job,
-    JobSearchResponse,
-    StoredJobsResponse,
-    SearchRequest,
+    JobsResponse,
     WebSocketSearchRequest,
 )
 
-from .enums import (
-    JobType,
-    JobContractType,
-)
+from .banned_company import BannedCompanyCreate
+from .banned_keyword import BannedKeywordCreate
+
 
 __all__ = [
     "Job",
-    "JobSearchResponse",
-    "StoredJobsResponse",
-    "SearchRequest",
+    "JobsResponse",
     "WebSocketSearchRequest",
-    "JobType",
-    "JobContractType",
+    "BannedCompanyCreate",
+    "BannedKeywordCreate",
 ]

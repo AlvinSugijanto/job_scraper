@@ -1,0 +1,40 @@
+const API_URL = process.env.API_URL || "http://localhost:8000";
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const response = await fetch(
+      `${API_URL}/banned-keywords?${searchParams.toString()}`,
+      { cache: "no-store" },
+    );
+    const data = await response.json();
+    return Response.json(data, { status: response.status });
+  } catch (error) {
+    console.error("GET banned-keywords error:", error);
+    return Response.json(
+      { error: "Failed to fetch banned keywords" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const response = await fetch(`${API_URL}/banned-keywords`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    return Response.json(data, { status: response.status });
+  } catch (error) {
+    console.error("POST banned-keywords error:", error);
+    return Response.json(
+      { error: "Failed to create banned keyword" },
+      { status: 500 },
+    );
+  }
+}

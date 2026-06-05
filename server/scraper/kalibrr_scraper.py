@@ -9,9 +9,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-from schemas import JobContractType, JobType
+from enums import JobContractType, JobType
 from core import ConnectionManager
 import requests
 import asyncio
@@ -111,7 +112,9 @@ async def search_jobs_kalibrr(
         on_progress: Async callback function(event_type, data)
                     event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
     """
-    logger.info(f"Kalibrr Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'")
+    logger.info(
+        f"Kalibrr Scraper initiated for keywords: '{request.keywords}', location: '{request.location}'"
+    )
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
     page = 1
@@ -129,7 +132,9 @@ async def search_jobs_kalibrr(
 
         # Notify: fetching page
         if manager:
-            await manager.send_fetching_page(client_id, page, len(jobs), portal="Kalibrr")
+            await manager.send_fetching_page(
+                client_id, page, len(jobs), portal="Kalibrr"
+            )
 
         # Kalibrr pakai query param 'start' untuk pagination
         params = {"start": (page - 1) * 10}
@@ -147,14 +152,20 @@ async def search_jobs_kalibrr(
             if response.status_code == 429:
                 # Rate limited - notify client
                 wait_seconds = 30
-                logger.warning(f"[Kalibrr] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying.")
+                logger.warning(
+                    f"[Kalibrr] Rate limit hit (429)! Dumping info to log. Waiting {wait_seconds}s before retrying."
+                )
                 if manager:
-                    await manager.send_rate_limit(client_id, wait_seconds, portal="Kalibrr")
+                    await manager.send_rate_limit(
+                        client_id, wait_seconds, portal="Kalibrr"
+                    )
                 await asyncio.sleep(wait_seconds)
                 continue
 
             if response.status_code != 200:
-                logger.warning(f"[Kalibrr] Non-200 response ({response.status_code}), stopping.")
+                logger.warning(
+                    f"[Kalibrr] Non-200 response ({response.status_code}), stopping."
+                )
                 break
 
         except Exception as e:

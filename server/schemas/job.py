@@ -1,8 +1,8 @@
 """
-Pydantic Schemas / Request & Response Models
+Pydantic Schemas for Jobs.
 """
 
-from .enums import JobContractType, JobType
+from enums import JobContractType, JobType
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -23,30 +23,11 @@ class Job(BaseModel):
     source: Optional[str] = None
 
 
-class JobSearchResponse(BaseModel):
-    success: bool
-    count: int
-    new_jobs: int  # Jobs baru yang di-scrape
-    from_db: int  # Jobs yang sudah ada di database
-    jobs: List[Job]
-
-
-class StoredJobsResponse(BaseModel):
+class JobsResponse(BaseModel):
     success: bool
     count: int
     total: int  # Total count for pagination
     jobs: List[Job]
-
-
-class SearchRequest(BaseModel):
-    keywords: str
-    location: Optional[str] = ""
-    distance: Optional[int] = None
-    job_contract: Optional[JobContractType] = None
-    job_type: Optional[JobType] = None
-    easy_apply: Optional[bool] = False
-    hours_old: Optional[int] = None
-    results_wanted: Optional[int] = 25
 
 
 class WebSocketSearchRequest(BaseModel):
@@ -55,7 +36,7 @@ class WebSocketSearchRequest(BaseModel):
     distance: Optional[int] = None
     job_contract: Optional[JobContractType] = None
     job_type: Optional[JobType] = None
-    easy_apply: Optional[bool] = False
+    easy_apply: Optional[bool] = True
     hours_old: Optional[int] = None
     results_wanted: Optional[int] = 25
     job_portals: Optional[List[str]] = ["linkedin", "jobstreet", "kalibrr"]
