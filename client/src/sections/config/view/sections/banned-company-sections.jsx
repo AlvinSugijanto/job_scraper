@@ -163,10 +163,8 @@ export default function BannedCompaniesSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h3 className="text-lg font-semibold tracking-tight">
-          Banned Companies
-        </h3>
+      <div className="flex justify-between gap-4">
+        <h3 className="font-semibold  self-end ml-1">Banned Companies</h3>
         <div className="flex items-center gap-4">
           {selectedRows.size > 0 && (
             <Button variant="outline" onClick={handleExport}>
@@ -177,7 +175,7 @@ export default function BannedCompaniesSection() {
           <SearchInput
             value={filters.q}
             onChange={(value) => setFilter("q", value)}
-            placeholder="Search companies..."
+            placeholder="Search items..."
           />
 
           <Button onClick={createModal.onTrue} size="sm">

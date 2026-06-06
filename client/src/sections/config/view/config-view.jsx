@@ -45,7 +45,6 @@ export default function ConfigView() {
             Banned Keywords
           </TabsTrigger>
         </TabsList>
-        <div className="py-2"></div>
         {/* Banned Companies Tab Content */}
         <TabsContent value="companies" className="space-y-4">
           <BannedCompaniesSection />

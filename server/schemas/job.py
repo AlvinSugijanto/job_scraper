@@ -21,6 +21,7 @@ class Job(BaseModel):
     job_type: Optional[JobType] = None
     job_contract: Optional[JobContractType] = None
     source: Optional[str] = None
+    session_id: Optional[int] = None
 
 
 class JobsResponse(BaseModel):
@@ -40,3 +41,4 @@ class WebSocketSearchRequest(BaseModel):
     hours_old: Optional[int] = None
     results_wanted: Optional[int] = 25
     job_portals: Optional[List[str]] = ["linkedin", "jobstreet", "kalibrr"]
+    session_id: Optional[int] = None

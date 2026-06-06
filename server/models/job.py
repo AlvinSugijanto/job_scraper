@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from enums import JobContractType, JobType
-from sqlalchemy import Column, String, Text, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, DateTime, Enum as SQLEnum, Integer, ForeignKey
 from datetime import datetime
 
 from core import Base
@@ -34,6 +34,7 @@ class Job(Base):
     )
     search_keywords = Column(String, nullable=True)
     source = Column(String, nullable=True)
+    session_id = Column(Integer, ForeignKey("list_sessions.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -51,5 +52,6 @@ class Job(Base):
             "job_type": self.job_type.value if self.job_type else None,
             "job_contract": self.job_contract.value if self.job_contract else None,
             "source": self.source,
+            "session_id": self.session_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

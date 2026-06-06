@@ -65,7 +65,9 @@ async def run_background_scrape(request: WebSocketSearchRequest):
                 all_jobs.extend(result)
 
         # Save new jobs to database
-        new_count = job_service.save_scraped_jobs(db, all_jobs, request.keywords)
+        new_count = job_service.save_scraped_jobs(
+            db, all_jobs, request.keywords, session_id=request.session_id
+        )
         logger.info(
             f"Background scraping completed. Found {len(all_jobs)} total jobs, {new_count} new jobs saved."
         )
@@ -105,6 +107,7 @@ def get_stored_jobs(
     job_contract: Optional[str] = Query(None, description="Filter by job contract"),
     location: Optional[str] = Query(None, description="Filter by location"),
     source: Optional[str] = Query(None, description="Filter by source"),
+    session_id: Optional[int] = Query(None, description="Filter by session ID"),
     sort_by: Optional[str] = Query(
         "created_at",
         description="Sort by field: title, company, location, salary, date_posted, created_at",
@@ -124,6 +127,7 @@ def get_stored_jobs(
         job_contract=job_contract,
         location=location,
         source=source,
+        session_id=session_id,
         sort_by=sort_by,
         sort_order=sort_order,
         page=page,

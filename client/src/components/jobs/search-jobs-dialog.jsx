@@ -14,6 +14,7 @@ import { SelectItem } from "@/components/ui/select";
 import CustomModal from "@/components/custom-modal";
 import FormProvider, { RHFInput, RHFSelect } from "@/components/hook-form";
 import { useScrapingProgress, ScrapingProgress } from "./scraping-progress";
+import { useApi } from "@/hooks/use-api";
 import {
   JOB_CONTRACT,
   JOB_TYPE,
@@ -23,6 +24,7 @@ import {
 
 const formSchema = z.object({
   keywords: z.string().min(1, "Keywords is required"),
+  session_name: z.string().min(1, "Session Name is required"),
   location: z.string().optional(),
   job_contract: z.string().optional(),
   job_type: z.string().optional(),
@@ -34,11 +36,15 @@ const formSchema = z.object({
 
 export function SearchJobsDialog({ open, setOpen, refetch }) {
   const scraping = useScrapingProgress();
+  const { call: callApi } = useApi();
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   const methods = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       keywords: "",
+      session_name: "",
       location: "",
       job_contract: "",
       job_type: "",
@@ -59,8 +65,9 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
       }
       scraping.reset();
       reset();
+      setCurrentSessionId(null);
     }
-  }, [open]);
+  }, [open, reset, setValue]);
 
   // Auto-close dialog after scraping is completed
   useEffect(() => {
@@ -70,8 +77,47 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
     }
   }, [scraping.status]);
 
-  const onSubmit = (data) => {
+  // Update session status based on scraping progress status
+  useEffect(() => {
+    if (!currentSessionId) return;
+
+    if (scraping.status === "completed" && scraping.result) {
+      callApi(`/api/v1/sessions/${currentSessionId}`, "PATCH", {
+        status: "completed",
+        total_jobs: scraping.result.total,
+        end_run_time: new Date().toISOString(),
+      }).catch((err) => {
+        console.error("Failed to update session to completed:", err);
+      });
+    } else if (scraping.status === "error") {
+      callApi(`/api/v1/sessions/${currentSessionId}`, "PATCH", {
+        status: "failed",
+        end_run_time: new Date().toISOString(),
+      }).catch((err) => {
+        console.error("Failed to update session to failed:", err);
+      });
+    }
+  }, [scraping.status, scraping.result, currentSessionId]);
+
+  const onSubmit = async (data) => {
     try {
+      setIsCreatingSession(true);
+      const sessionPayload = {
+        name: data.session_name,
+        status: "running",
+        start_run_time: new Date().toISOString(),
+        total_jobs: 0,
+      };
+
+      const sessionResp = await callApi(
+        "/api/v1/sessions",
+        "POST",
+        sessionPayload,
+      );
+      const createdSession = sessionResp.data;
+      const sessionId = createdSession.id;
+      setCurrentSessionId(sessionId);
+
       const params = {
         keywords: data.keywords,
         location: data.location || undefined,
@@ -81,11 +127,14 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
         results_wanted: parseInt(data.results_wanted) || 25,
         hours_old: data.hours_old ? parseInt(data.hours_old) : undefined,
         job_portals: data.job_portals,
+        session_id: sessionId,
       };
       scraping.startScraping(params);
     } catch (error) {
-      console.error("Error searching jobs:", error);
-      toast.error("Failed to search jobs");
+      console.error("Error creating session or starting scrape:", error);
+      toast.error(error?.response?.data?.detail || "Failed to search jobs");
+    } finally {
+      setIsCreatingSession(false);
     }
   };
 
@@ -116,10 +165,12 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
       >
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <p className="text-sm text-muted-foreground mb-2">
-            Search for new jobs from LinkedIn. Results will be saved to
-            database.
-          </p>
+          <RHFInput
+            name="session_name"
+            label="Session Name *"
+            placeholder="e.g. Software Engineer Search Q2"
+            disabled={scraping.isActive}
+          />
 
           <RHFInput
             name="keywords"
@@ -237,10 +288,14 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
               </Button>
               <Button
                 type="submit"
-                disabled={scraping.status === "completed"}
+                disabled={scraping.status === "completed" || isCreatingSession}
                 size="sm"
               >
-                <Search className="mr-2 h-4 w-4" />
+                {isCreatingSession ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
                 Search
               </Button>
             </>

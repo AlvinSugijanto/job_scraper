@@ -21,6 +21,7 @@ def get_jobs(
     job_contract: str = None,
     location: str = None,
     source: str = None,
+    session_id: int = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     page: int = 1,
@@ -39,6 +40,7 @@ def get_jobs(
         job_contract=job_contract,
         location=location,
         source=source,
+        session_id=session_id,
         sort_by=sort_by,
         sort_order=sort_order,
         page=page,
@@ -62,11 +64,15 @@ def get_job(db: Session, job_id: str):
     return {"success": True, "job": job.to_dict()}
 
 
-def save_scraped_jobs(db: Session, jobs: list, keywords: str) -> int:
+def save_scraped_jobs(
+    db: Session, jobs: list, keywords: str, session_id: int = None
+) -> int:
     """Save scraped jobs to DB, filtering out banned companies and keywords."""
 
     saved_count = 0
     for job_data in jobs:
+        if session_id is not None:
+            job_data["session_id"] = session_id
         job_repo.create(db, job_data, search_keywords=keywords)
         saved_count += 1
 

@@ -20,6 +20,7 @@ def get(
     job_contract: str = None,
     location: str = None,
     source: str = None,
+    session_id: int = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     page: int = 1,
@@ -55,6 +56,9 @@ def get(
 
     if source:
         query = query.filter(JobModel.source == source)
+
+    if session_id is not None:
+        query = query.filter(JobModel.session_id == session_id)
 
     total = query.count()
 
@@ -95,6 +99,7 @@ def create(db: Session, job_data: dict, search_keywords: str = None):
         job_contract=job_data.get("job_contract"),
         search_keywords=search_keywords,
         source=job_data.get("source"),
+        session_id=job_data.get("session_id"),
     )
     db.add(db_job)
     return db_job

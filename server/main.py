@@ -37,7 +37,12 @@ from core import engine, get_db, Base
 from core import manager
 from schemas import WebSocketSearchRequest
 from services import job as job_service
-from routers import job_router, banned_companies_router, banned_keywords_router, sessions_router
+from routers import (
+    job_router,
+    banned_companies_router,
+    banned_keywords_router,
+    sessions_router,
+)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -153,7 +158,9 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
                 all_jobs.extend(result)
 
         # Save to database
-        new_count = job_service.save_scraped_jobs(db, all_jobs, request.keywords)
+        new_count = job_service.save_scraped_jobs(
+            db, all_jobs, request.keywords, session_id=request.session_id
+        )
 
         # Notify: completed
         await manager.send_completed(client_id, len(all_jobs), new_count)
