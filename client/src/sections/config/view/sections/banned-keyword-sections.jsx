@@ -26,111 +26,66 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useBoolean } from "@/hooks/use-boolean";
-import { exportToCSV } from "@/utils/export-csv";
 import SearchInput from "@/components/search-input";
+import { useTableSelection } from "@/hooks/use-table-selection";
 
 const PAGE_SIZE = 10;
 
 export default function BannedKeywordsSection() {
-  const loadingDelete = useBoolean(false);
-
-  const [allKeywords, setAllKeywords] = useState([]);
-
-  const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const createModal = useBoolean(false);
+  const deleteModal = useBoolean(false);
 
   const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedRows, setSelectedRows] = useState(new Set());
 
   const { data: keywords, call, loading } = useApi();
+  const { call: callDelete, loading: loadingDelete } = useApi();
 
   const { page, pageSize, setPage, paginationProps } = usePagination({
     totalItems: keywords?.total,
     initialPageSize: PAGE_SIZE,
   });
 
-  const { filters, setFilter, handleSort } = useFilters({
+  const { filters, setFilter, handleSort, getQueryParams } = useFilters({
     initialFilters: {
       q: "",
       sortBy: "keyword",
       sortOrder: "asc",
     },
+    paramMapping: {
+      q: "search",
+      sortBy: "sort_by",
+      sortOrder: "sort_order",
+    },
     resetPage: () => setPage(1),
+  });
+  const {
+    selectedRows,
+    handleSelectOne,
+    handleSelectPage,
+    handleSelectAll,
+    handleClearSelection,
+    handleExport,
+  } = useTableSelection({
+    currentPageData: keywords?.data || [],
+    apiUrl: "/api/v1/banned-keywords",
+    filters,
+    itemLabel: "keywords",
+    getQueryParams,
   });
 
   const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
 
   const fetchKeywords = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.sortBy) params.append("sort_by", filters.sortBy);
-    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
-    params.append("page", page.toString());
-    params.append("perPage", pageSize.toString());
-
+    const params = getQueryParams({ page, perPage: pageSize });
     call(`/api/v1/banned-keywords?${params}`);
-  };
-
-  const handleSelectOne = (jobId, checked) => {
-    const newSelected = new Set(selectedRows);
-    if (checked) {
-      newSelected.add(jobId);
-    } else {
-      newSelected.delete(jobId);
-    }
-    setSelectedRows(newSelected);
-  };
-
-  const handleSelectPage = () => {
-    setSelectedRows(new Set(keywords?.data?.map((item) => item.id)));
-  };
-
-  const handleSelectAll = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.sortBy) params.append("sort_by", filters.sortBy);
-    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
-    params.append("perPage", "1000");
-
-    try {
-      const { data } = await call(`/api/v1/banned-keywords?${params}`);
-      setSelectedRows(new Set((data || []).map((item) => item.id)));
-      setAllKeywords(data || []);
-      toast.success(`Selected all ${data?.length ?? 0} keywords`);
-    } catch (error) {
-      toast.error("Failed to select all keywords");
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedRows(new Set());
-    setAllKeywords([]);
-  };
-
-  const handleExport = () => {
-    const sourceJobs =
-      allKeywords?.length > 0 ? allKeywords : keywords?.data || [];
-    const jobsToExport = sourceJobs.filter((job) => selectedRows.has(job.id));
-
-    if (jobsToExport.length === 0) {
-      toast.error("Please select at least one banned keyword to export");
-      return;
-    }
-
-    const timestamp = new Date().toISOString().split("T")[0];
-    exportToCSV(jobsToExport, `banned_keywords_${timestamp}.csv`);
-    setSelectedRows(new Set());
-    setAllKeywords([]);
-    toast.success(`Exported ${jobsToExport.length} banned keywords to CSV`);
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedItem?.id) return;
-    loadingDelete.onTrue();
     try {
-      await call(`/api/v1/banned-keywords/${selectedItem.id}`, "DELETE");
+      await callDelete(`/api/v1/banned-keywords/${selectedItem.id}`, "DELETE");
       toast.success(`"${selectedItem.keyword}" deleted successfully.`);
-      setOpenDeleteModal(false);
+      deleteModal.onFalse();
       fetchKeywords();
     } catch (error) {
       toast.error(
@@ -138,15 +93,8 @@ export default function BannedKeywordsSection() {
           error.message ||
           "Failed to delete keyword",
       );
-    } finally {
-      loadingDelete.onFalse();
     }
   };
-
-  // Refetch when page, pageSize, or filters change
-  useEffect(() => {
-    fetchKeywords();
-  }, [page, pageSize, filters]);
 
   const columns = [
     {
@@ -185,11 +133,20 @@ export default function BannedKeywordsSection() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedItem(row);
+                createModal.onTrue();
+              }}
+            >
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
               className="text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedItem(row);
-                setOpenDeleteModal(true);
+                deleteModal.onTrue();
               }}
             >
               Delete
@@ -199,6 +156,16 @@ export default function BannedKeywordsSection() {
       ),
     },
   ];
+
+  // Refetch when page, pageSize, or filters change
+  useEffect(() => {
+    fetchKeywords();
+  }, [page, pageSize, filters]);
+
+  // Clear selection when jobs change
+  useEffect(() => {
+    handleClearSelection();
+  }, [keywords?.data]);
 
   return (
     <div className="space-y-4">
@@ -217,9 +184,9 @@ export default function BannedKeywordsSection() {
           <SearchInput
             value={filters.q}
             onChange={(value) => setFilter("q", value)}
-            placeholder="Filter keywords..."
+            placeholder="Search keywords..."
           />
-          <Button onClick={() => setOpenCreateModal(true)} size="sm">
+          <Button onClick={createModal.onTrue} size="sm">
             <Plus className="h-4 w-4 mr-1.5" /> Add Keyword
           </Button>
         </div>
@@ -240,19 +207,23 @@ export default function BannedKeywordsSection() {
         onClearSelection={handleClearSelection}
       />
 
-      <AddKeywordModal
-        open={openCreateModal}
-        setOpen={setOpenCreateModal}
-        refetch={fetchKeywords}
-      />
+      {createModal.value && (
+        <AddKeywordModal
+          open={createModal.value}
+          setOpen={createModal.setValue}
+          selectedItem={selectedItem}
+          setSelectedItem={setSelectedItem}
+          refetch={fetchKeywords}
+        />
+      )}
 
       <DeleteDialog
-        open={openDeleteModal}
-        setOpen={setOpenDeleteModal}
+        open={deleteModal.value}
+        setOpen={deleteModal.setValue}
         title="Delete Banned Keyword"
         description={`Are you sure you want to delete "${selectedItem?.keyword || ""}" from the banned list?`}
         onConfirm={handleConfirmDelete}
-        loading={loadingDelete.value}
+        loading={loadingDelete}
       />
     </div>
   );

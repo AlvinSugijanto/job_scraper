@@ -42,7 +42,13 @@ def create(keyword_in: BannedKeywordCreate, db: Session = Depends(get_db)):
     return banned_keyword_service.create_keyword(db, keyword_in.keyword)
 
 
-@router.delete("/{keyword_id}")
-def delete(keyword_id: int, db: Session = Depends(get_db)):
-    """DELETE /api/v1/banned-keywords/{keyword_id}"""
-    return banned_keyword_service.delete_keyword(db, keyword_id)
+@router.delete("/{id}")
+def delete(id: int, db: Session = Depends(get_db)):
+    """DELETE /api/v1/banned-keywords/{id}"""
+    return banned_keyword_service.delete_keyword(db, id)
+
+
+@router.put("/{id}")
+def update(id: int, keyword_in: BannedKeywordCreate, db: Session = Depends(get_db)):
+    """PUT /api/v1/banned-keywords/{id}"""
+    return banned_keyword_service.update_keyword(db, id, keyword_in.keyword)

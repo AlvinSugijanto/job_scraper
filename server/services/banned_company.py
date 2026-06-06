@@ -48,3 +48,16 @@ def delete_company(db: Session, company_id: int):
         raise HTTPException(status_code=404, detail="Banned company not found")
 
     return {"success": True, "message": "Banned company deleted successfully"}
+
+
+def update_company(db: Session, company_id: int, name: str):
+    """Update a banned company name. Raises HTTPException if duplicate or not found."""
+    existing = banned_company_repo.find(db, name)
+    if existing and existing.id != company_id:
+        raise HTTPException(status_code=400, detail="Company already in banned list")
+
+    db_company = banned_company_repo.update(db, company_id, name)
+    if not db_company:
+        raise HTTPException(status_code=404, detail="Banned company not found")
+
+    return {"success": True, "data": db_company.to_dict()}

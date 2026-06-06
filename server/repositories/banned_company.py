@@ -69,3 +69,17 @@ def delete(db: Session, company_id: int):
         db.delete(db_company)
         db.commit()
     return db_company
+
+
+def update(db: Session, company_id: int, name: str):
+    """Update a banned company by ID. Returns the record or None."""
+    db_company = (
+        db.query(BannedCompany)
+        .filter(BannedCompany.id == company_id)
+        .first()
+    )
+    if db_company:
+        db_company.name = name
+        db.commit()
+        db.refresh(db_company)
+    return db_company

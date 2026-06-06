@@ -2,29 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelect } from "@/components/ui/multi-select";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectItem } from "@/components/ui/select";
+import CustomModal from "@/components/custom-modal";
+import FormProvider, { RHFInput, RHFSelect } from "@/components/hook-form";
 import { useScrapingProgress, ScrapingProgress } from "./scraping-progress";
 import {
   JOB_CONTRACT,
@@ -33,17 +21,22 @@ import {
   JOB_PORTALS,
 } from "@/data/enums";
 
-export function SearchJobsDialog({ onSuccess }) {
-  const [open, setOpen] = useState(false);
+const formSchema = z.object({
+  keywords: z.string().min(1, "Keywords is required"),
+  location: z.string().optional(),
+  job_contract: z.string().optional(),
+  job_type: z.string().optional(),
+  easy_apply: z.boolean().optional(),
+  results_wanted: z.coerce.number().min(1).max(100).default(25),
+  hours_old: z.string().optional(),
+  job_portals: z.array(z.string()),
+});
+
+export function SearchJobsDialog({ open, setOpen, refetch }) {
   const scraping = useScrapingProgress();
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm({
+  const methods = useForm({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       keywords: "",
       location: "",
@@ -56,11 +49,13 @@ export function SearchJobsDialog({ onSuccess }) {
     },
   });
 
+  const { handleSubmit, setValue, reset } = methods;
+
   // Reset form and scraping state when dialog closes
   useEffect(() => {
     if (!open) {
       if (scraping.status === "completed") {
-        onSuccess?.();
+        refetch?.();
       }
       scraping.reset();
       reset();
@@ -108,45 +103,37 @@ export function SearchJobsDialog({ onSuccess }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger asChild>
-        <Button>
-          <Search className="mr-2 h-4 w-4" />
-          Search Jobs
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Search LinkedIn Jobs</DialogTitle>
-          <DialogDescription>
+    <CustomModal
+      open={open}
+      setOpen={handleClose}
+      title="Search LinkedIn Jobs"
+      className="max-w-5xl"
+    >
+      <FormProvider
+        methods={methods}
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col flex-1 overflow-hidden"
+      >
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <p className="text-sm text-muted-foreground mb-2">
             Search for new jobs from LinkedIn. Results will be saved to
             database.
-          </DialogDescription>
-        </DialogHeader>
+          </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="keywords">Keywords *</Label>
-            <Input
-              id="keywords"
-              placeholder="e.g. Python Developer"
-              disabled={scraping.isActive}
-              {...register("keywords", { required: "Keywords is required" })}
-            />
-            {errors.keywords && (
-              <p className="text-sm text-red-500">{errors.keywords.message}</p>
-            )}
-          </div>
+          <RHFInput
+            name="keywords"
+            label="Keywords *"
+            placeholder="e.g. Python Developer"
+            disabled={scraping.isActive}
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="e.g. Jakarta, Indonesia"
-              disabled={scraping.isActive}
-              {...register("location")}
-            />
-          </div>
+          <RHFInput
+            name="location"
+            label="Location"
+            placeholder="e.g. Jakarta, Indonesia"
+            disabled={scraping.isActive}
+          />
 
           <div className="space-y-2">
             <Label>Job Portals</Label>
@@ -161,89 +148,58 @@ export function SearchJobsDialog({ onSuccess }) {
             />
           </div>
 
-          <div className="space-y-2 w-full">
-            <Label>Job Contract</Label>
-            <Select
-              onValueChange={(value) => setValue("job_contract", value)}
-              defaultValue=""
-              disabled={scraping.isActive}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Job Contract" />
-              </SelectTrigger>
-              <SelectContent>
-                {JOB_CONTRACT.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <RHFSelect
+            name="job_contract"
+            label="Job Contract"
+            placeholder="Select Job Contract"
+            disabled={scraping.isActive}
+            className="w-full"
+          >
+            {JOB_CONTRACT.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </RHFSelect>
 
-          <div className="space-y-2 w-full">
-            <Label>Job Type</Label>
-            <Select
-              onValueChange={(value) => setValue("job_type", value)}
-              defaultValue=""
-              disabled={scraping.isActive}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Job Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {JOB_TYPE.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <RHFSelect
+            name="job_type"
+            label="Job Type"
+            placeholder="Select Job Type"
+            disabled={scraping.isActive}
+            className="w-full"
+          >
+            {JOB_TYPE.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </RHFSelect>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="results_wanted">Results Wanted</Label>
-              <Input
-                id="results_wanted"
-                type="number"
-                min="1"
-                max="100"
-                disabled={scraping.isActive}
-                {...register("results_wanted")}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="hours_old">Posted Within</Label>
-              <Select
-                onValueChange={(value) => setValue("hours_old", value)}
-                defaultValue=""
-                disabled={scraping.isActive}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select posted within" />
-                </SelectTrigger>
-                <SelectContent>
-                  {POSTED_WITHIN_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* <div className="flex items-center space-x-2 mt-6">
-            <Checkbox
-              id="easy_apply"
+            <RHFInput
+              name="results_wanted"
+              label="Results Wanted"
+              type="number"
+              min="1"
+              max="100"
               disabled={scraping.isActive}
-              onCheckedChange={(checked) => setValue("easy_apply", checked)}
             />
-            <Label htmlFor="easy_apply" className="cursor-pointer">
-              Easy Apply
-            </Label>
-          </div> */}
+
+            <RHFSelect
+              name="hours_old"
+              label="Posted Within"
+              placeholder="Select posted within"
+              disabled={scraping.isActive}
+              className="w-full"
+            >
+              {POSTED_WITHIN_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </RHFSelect>
+          </div>
 
           {/* Progress Display */}
           <ScrapingProgress
@@ -255,38 +211,42 @@ export function SearchJobsDialog({ onSuccess }) {
             countdown={scraping.countdown}
             result={scraping.result}
           />
+        </div>
 
-          <div className="flex justify-end gap-2">
-            {scraping.isActive ? (
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex justify-end gap-2 bg-muted/10">
+          {scraping.isActive ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleCancel}
+              size="sm"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
+          ) : (
+            <>
               <Button
                 type="button"
-                variant="destructive"
-                onClick={handleCancel}
+                variant="outline"
+                onClick={() => handleClose(false)}
+                size="sm"
               >
-                <X className="mr-2 h-4 w-4" />
-                Cancel
+                {scraping.status === "completed" ? "Close" : "Cancel"}
               </Button>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleClose(false)}
-                >
-                  {scraping.status === "completed" ? "Close" : "Cancel"}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={scraping.status === "completed"}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Search
-                </Button>
-              </>
-            )}
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button
+                type="submit"
+                disabled={scraping.status === "completed"}
+                size="sm"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Search
+              </Button>
+            </>
+          )}
+        </div>
+      </FormProvider>
+    </CustomModal>
   );
 }

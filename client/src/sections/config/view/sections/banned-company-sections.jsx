@@ -25,110 +25,66 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useBoolean } from "@/hooks/use-boolean";
-import { exportToCSV } from "@/utils/export-csv";
 import SearchInput from "@/components/search-input";
+import { useTableSelection } from "@/hooks/use-table-selection";
 const PAGE_SIZE = 10;
 
 export default function BannedCompaniesSection() {
-  const loadingDelete = useBoolean(false);
-
-  const [allCompanies, setAllCompanies] = useState([]);
-
-  const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const createModal = useBoolean(false);
+  const deleteModal = useBoolean(false);
 
   const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedRows, setSelectedRows] = useState(new Set());
 
   const { data: companies, call, loading } = useApi();
+  const { call: callDelete, loading: loadingDelete } = useApi();
 
   const { page, pageSize, setPage, paginationProps } = usePagination({
     totalItems: companies?.total,
     initialPageSize: PAGE_SIZE,
   });
 
-  const { filters, setFilter, handleSort } = useFilters({
+  const { filters, setFilter, handleSort, getQueryParams } = useFilters({
     initialFilters: {
       q: "",
       sortBy: "name",
       sortOrder: "asc",
     },
+    paramMapping: {
+      q: "search",
+      sortBy: "sort_by",
+      sortOrder: "sort_order",
+    },
     resetPage: () => setPage(1),
+  });
+
+  const {
+    selectedRows,
+    handleSelectOne,
+    handleSelectPage,
+    handleSelectAll,
+    handleClearSelection,
+    handleExport,
+  } = useTableSelection({
+    currentPageData: companies?.data || [],
+    apiUrl: "/api/v1/banned-companies",
+    filters,
+    itemLabel: "companies",
+    getQueryParams,
   });
 
   const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
 
   const fetchCompanies = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.sortBy) params.append("sort_by", filters.sortBy);
-    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
-    params.append("page", page.toString());
-    params.append("perPage", pageSize.toString());
-
+    const params = getQueryParams({ page, perPage: pageSize });
     call(`/api/v1/banned-companies?${params}`);
-  };
-
-  const handleSelectOne = (jobId, checked) => {
-    const newSelected = new Set(selectedRows);
-    if (checked) {
-      newSelected.add(jobId);
-    } else {
-      newSelected.delete(jobId);
-    }
-    setSelectedRows(newSelected);
-  };
-
-  const handleSelectPage = () => {
-    setSelectedRows(new Set(companies?.data?.map((item) => item.id)));
-  };
-
-  const handleSelectAll = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.sortBy) params.append("sort_by", filters.sortBy);
-    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
-    params.append("perPage", "1000");
-
-    try {
-      const { data } = await call(`/api/v1/banned-companies?${params}`);
-      setSelectedRows(new Set((data || []).map((item) => item.id)));
-      setAllCompanies(data || []);
-      toast.success(`Selected all ${data?.length ?? 0} companies`);
-    } catch (error) {
-      toast.error("Failed to select all companies");
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedRows(new Set());
-    setAllCompanies([]);
-  };
-
-  const handleExport = () => {
-    const sourceJobs =
-      allCompanies?.length > 0 ? allCompanies : companies?.data || [];
-    const jobsToExport = sourceJobs.filter((job) => selectedRows.has(job.id));
-
-    if (jobsToExport.length === 0) {
-      toast.error("Please select at least one banned company to export");
-      return;
-    }
-
-    const timestamp = new Date().toISOString().split("T")[0];
-    exportToCSV(jobsToExport, `banned_companies_${timestamp}.csv`);
-    setSelectedRows(new Set());
-    setAllCompanies([]);
-    toast.success(`Exported ${jobsToExport.length} banned companies to CSV`);
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedItem?.id) return;
-    loadingDelete.onTrue();
     try {
-      await call(`/api/v1/banned-companies/${selectedItem.id}`, "DELETE");
+      await callDelete(`/api/v1/banned-companies/${selectedItem.id}`, "DELETE");
       toast.success(`"${selectedItem.name}" deleted successfully.`);
-      setOpenDeleteModal(false);
+      deleteModal.onFalse();
       fetchCompanies();
     } catch (error) {
       toast.error(
@@ -136,15 +92,8 @@ export default function BannedCompaniesSection() {
           error.message ||
           "Failed to delete company",
       );
-    } finally {
-      loadingDelete.onFalse();
     }
   };
-
-  // Refetch when page, pageSize, or filters change
-  useEffect(() => {
-    fetchCompanies();
-  }, [page, pageSize, filters]);
 
   const columns = [
     {
@@ -178,11 +127,20 @@ export default function BannedCompaniesSection() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                createModal.onTrue();
+                setSelectedItem(row);
+              }}
+            >
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
               className="text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedItem(row);
-                setOpenDeleteModal(true);
+                deleteModal.onTrue();
               }}
             >
               Delete
@@ -192,6 +150,16 @@ export default function BannedCompaniesSection() {
       ),
     },
   ];
+
+  // Refetch when page, pageSize, or filters change
+  useEffect(() => {
+    fetchCompanies();
+  }, [page, pageSize, filters]);
+
+  // Clear selection when jobs change
+  useEffect(() => {
+    handleClearSelection();
+  }, [companies?.data]);
 
   return (
     <div className="space-y-4">
@@ -209,10 +177,10 @@ export default function BannedCompaniesSection() {
           <SearchInput
             value={filters.q}
             onChange={(value) => setFilter("q", value)}
-            placeholder="Filter companies..."
+            placeholder="Search companies..."
           />
 
-          <Button onClick={() => setOpenCreateModal(true)} size="sm">
+          <Button onClick={createModal.onTrue} size="sm">
             <Plus className="h-4 w-4 mr-1.5" /> Add Company
           </Button>
         </div>
@@ -233,19 +201,23 @@ export default function BannedCompaniesSection() {
         onClearSelection={handleClearSelection}
       />
 
-      <AddCompanyModal
-        open={openCreateModal}
-        setOpen={setOpenCreateModal}
-        refetch={fetchCompanies}
-      />
+      {createModal.value && (
+        <AddCompanyModal
+          open={createModal.value}
+          setOpen={createModal.setValue}
+          selectedItem={selectedItem}
+          setSelectedItem={setSelectedItem}
+          refetch={fetchCompanies}
+        />
+      )}
 
       <DeleteDialog
-        open={openDeleteModal}
-        setOpen={setOpenDeleteModal}
+        open={deleteModal.value}
+        setOpen={deleteModal.setValue}
         title="Delete Banned Company"
         description={`Are you sure you want to delete "${selectedItem?.name || ""}" from the banned list?`}
         onConfirm={handleConfirmDelete}
-        loading={loadingDelete.value}
+        loading={loadingDelete}
       />
     </div>
   );

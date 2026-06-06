@@ -12,8 +12,8 @@ export const exportToCSV = (data, filename = "export.csv", options = {}) => {
   const skipList = Array.isArray(skipped_key)
     ? skipped_key
     : skipped_key
-    ? [skipped_key]
-    : [];
+      ? [skipped_key]
+      : [];
 
   const firstItem = data[0] || {};
   let keys = customKeys || Object.keys(firstItem);
@@ -26,7 +26,7 @@ export const exportToCSV = (data, filename = "export.csv", options = {}) => {
     key
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
+      .join(" "),
   );
 
   const formatValue = (key, val) => {
@@ -47,10 +47,10 @@ export const exportToCSV = (data, filename = "export.csv", options = {}) => {
     }
 
     let strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
-    
+
     // Replace any internal double quotes with doubled double quotes
     strVal = strVal.replace(/"/g, '""');
-    
+
     // Wrap the cell in double quotes if it contains commas, quotes, or newlines
     if (
       strVal.includes(",") ||
@@ -65,7 +65,9 @@ export const exportToCSV = (data, filename = "export.csv", options = {}) => {
 
   const csvRows = [
     headers.join(","),
-    ...data.map((row) => keys.map((key) => formatValue(key, row[key])).join(",")),
+    ...data.map((row) =>
+      keys.map((key) => formatValue(key, row[key])).join(","),
+    ),
   ];
 
   const csvContent = csvRows.join("\n");
@@ -78,19 +80,4 @@ export const exportToCSV = (data, filename = "export.csv", options = {}) => {
   link.click();
 
   URL.revokeObjectURL(url);
-};
-
-export const exportJobsToCSV = (jobs, filename = "jobs_export.csv") => {
-  const keys = [
-    "id",
-    "title",
-    "company",
-    "location",
-    "salary",
-    "date_posted",
-    "created_at",
-    "job_url",
-  ];
-
-  exportToCSV(jobs, filename, { keys });
 };

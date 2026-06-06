@@ -48,28 +48,48 @@ const AddCompanyModal = ({
 
   const onSubmit = async (values) => {
     try {
-      await call(`/api/v1/banned-companies/`, "POST", values);
-      toast.success("Company Successfully Created!");
+      const isEdit = !!selectedItem;
+      const url = isEdit
+        ? `/api/v1/banned-companies/${selectedItem.id}`
+        : `/api/v1/banned-companies/`;
+      const method = isEdit ? "PUT" : "POST";
+
+      await call(url, method, values);
+      toast.success(
+        isEdit
+          ? "Company Successfully Updated!"
+          : "Company Successfully Created!",
+      );
       setOpen(false);
       reset();
       refetch();
     } catch (error) {
       console.log(error);
       toast.error("Something error happened!");
+    } finally {
+      setSelectedItem(null);
     }
   };
 
   useEffect(() => {
-    return () => {
-      if (setSelectedItem) {
-        setSelectedItem(null);
-      }
-    };
-  }, [setSelectedItem]);
+    if (selectedItem) {
+      reset({
+        name: selectedItem.name,
+      });
+    } else {
+      reset({
+        name: "",
+      });
+    }
+  }, [selectedItem, reset]);
+
+  useEffect(() => {
+    return () => setSelectedItem(null);
+  }, []);
 
   return (
     <CustomModal
-      title={"Create Company"}
+      title={selectedItem ? "Edit Company" : "Create Company"}
       open={open}
       setOpen={setOpen}
       className="max-w-3xl"

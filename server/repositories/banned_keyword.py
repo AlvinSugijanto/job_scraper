@@ -69,3 +69,17 @@ def delete(db: Session, keyword_id: int):
         db.delete(db_keyword)
         db.commit()
     return db_keyword
+
+
+def update(db: Session, keyword_id: int, keyword: str):
+    """Update a banned keyword by ID. Returns the record or None."""
+    db_keyword = (
+        db.query(BannedKeyword)
+        .filter(BannedKeyword.id == keyword_id)
+        .first()
+    )
+    if db_keyword:
+        db_keyword.keyword = keyword
+        db.commit()
+        db.refresh(db_keyword)
+    return db_keyword

@@ -15,6 +15,7 @@ from scraper import search_jobs_linkedin, search_jobs_jobstreet, search_jobs_kal
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
+    prefix="/jobs",
     tags=["jobs"],
 )
 
@@ -74,7 +75,7 @@ async def run_background_scrape(request: WebSocketSearchRequest):
         db.close()
 
 
-@router.post("/jobs/scrape")
+@router.post("/scrape")
 async def scrape_jobs(
     request: WebSocketSearchRequest,
     background_tasks: BackgroundTasks,
@@ -95,7 +96,7 @@ async def scrape_jobs(
     }
 
 
-@router.get("/jobs/stored")
+@router.get("/")
 def get_stored_jobs(
     search: Optional[str] = Query(
         None, description="Search in title, company, location"
@@ -110,7 +111,9 @@ def get_stored_jobs(
     ),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(25, ge=1, le=10000, alias="perPage", description="Items per page"),
+    per_page: int = Query(
+        25, ge=1, le=10000, alias="perPage", description="Items per page"
+    ),
     db: Session = Depends(get_db),
 ):
     """Ambil semua jobs yang tersimpan di database."""
@@ -128,7 +131,7 @@ def get_stored_jobs(
     )
 
 
-@router.get("/jobs/stored/{job_id}")
+@router.get("/jobs/{job_id}")
 def get_stored_job(job_id: str, db: Session = Depends(get_db)):
     """Ambil detail job tertentu dari database."""
     return job_service.get_job(db, job_id)

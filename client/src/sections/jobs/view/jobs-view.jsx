@@ -7,6 +7,7 @@ import {
   MapPin,
   Calendar,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,8 +24,10 @@ import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { useApi } from "@/hooks/use-api";
 import { SimpleTable, usePagination } from "@/components/table/simple-table";
 import { JobsFilters } from "./jobs-filters";
-import { exportJobsToCSV } from "@/utils/export-csv";
+import { exportJobsToCSV, exportToCSV } from "@/utils/export-csv";
 import { useFilters } from "@/hooks/use-filters";
+import { useTableSelection } from "@/hooks/use-table-selection";
+import { useBoolean } from "@/hooks/use-boolean";
 import { Badge } from "@/components/ui/badge";
 import { fDate, fDateTime } from "@/utils/format-time";
 import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
@@ -32,9 +35,7 @@ import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 const PAGE_SIZE = 10;
 
 export default function JobsView() {
-  const [allJobs, setAllJobs] = useState([]);
-  const [selectedRows, setSelectedRows] = useState(new Set());
-
+  const searchModal = useBoolean(false);
   const { data: jobs, call, loading } = useApi();
 
   const { page, pageSize, setPage, paginationProps } = usePagination({
@@ -42,7 +43,7 @@ export default function JobsView() {
     initialPageSize: PAGE_SIZE,
   });
 
-  const { filters, setFilters, handleSort } = useFilters({
+  const { filters, setFilters, handleSort, getQueryParams } = useFilters({
     initialFilters: {
       q: "",
       job_type: "all",
@@ -52,97 +53,36 @@ export default function JobsView() {
       sortBy: "created_at",
       sortOrder: "desc",
     },
+    paramMapping: {
+      q: "search",
+      sortBy: "sort_by",
+      sortOrder: "sort_order",
+      job_portal: "source",
+    },
     resetPage: () => setPage(1),
+  });
+
+  const {
+    selectedRows,
+    handleSelectOne,
+    handleSelectPage,
+    handleSelectAll,
+    handleClearSelection,
+    handleExport,
+  } = useTableSelection({
+    currentPageData: jobs?.data || [],
+    apiUrl: "/api/v1/jobs",
+    filters,
+    itemLabel: "jobs",
+    getQueryParams,
   });
 
   const sortConfig = { key: filters.sortBy, direction: filters.sortOrder };
 
   const fetchJobs = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.job_type && filters.job_type !== "all")
-      params.append("job_type", filters.job_type);
-    if (filters.job_contract && filters.job_contract !== "all")
-      params.append("job_contract", filters.job_contract);
-    if (filters.job_portal && filters.job_portal !== "all")
-      params.append("source", filters.job_portal);
-    if (filters.location) params.append("location", filters.location);
-    if (filters.sortBy) params.append("sort_by", filters.sortBy);
-    if (filters.sortOrder) params.append("sort_order", filters.sortOrder);
-    params.append("page", page.toString());
-    params.append("perPage", pageSize.toString());
-
-    call(`/api/v1/jobs/stored?${params}`);
+    const params = getQueryParams({ page, perPage: pageSize });
+    call(`/api/v1/jobs?${params}`);
   };
-
-  // Refetch when page, pageSize, or filters change
-  useEffect(() => {
-    fetchJobs();
-  }, [page, pageSize, filters]);
-
-  // Clear selection when jobs change
-  useEffect(() => {
-    setSelectedRows(new Set());
-    setAllJobs([]);
-  }, [jobs?.jobs]);
-
-  // Selection handlers
-  const handleSelectPage = () => {
-    setSelectedRows(new Set(jobs?.jobs?.map((job) => job.id)));
-  };
-
-  const handleSelectAll = async () => {
-    const params = new URLSearchParams();
-    if (filters.q) params.append("search", filters.q);
-    if (filters.job_type && filters.job_type !== "all")
-      params.append("job_type", filters.job_type);
-    if (filters.job_contract && filters.job_contract !== "all")
-      params.append("job_contract", filters.job_contract);
-    if (filters.job_portal && filters.job_portal !== "all")
-      params.append("source", filters.job_portal);
-    if (filters.location) params.append("location", filters.location);
-    params.append("perPage", "10000");
-
-    try {
-      const { jobs } = await call(`/api/v1/jobs/stored?${params}`);
-      setSelectedRows(new Set((jobs || []).map((job) => job.id)));
-      setAllJobs(jobs || []);
-      toast.success(`Selected all ${jobs?.length ?? 0} jobs`);
-    } catch (error) {
-      toast.error("Failed to select all jobs");
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedRows(new Set());
-    setAllJobs([]);
-  };
-
-  const handleSelectOne = (jobId, checked) => {
-    const newSelected = new Set(selectedRows);
-    if (checked) {
-      newSelected.add(jobId);
-    } else {
-      newSelected.delete(jobId);
-    }
-    setSelectedRows(newSelected);
-  };
-
-  // Export handler
-  const handleExport = () => {
-    const sourceJobs = allJobs.length > 0 ? allJobs : jobs?.jobs || [];
-    const jobsToExport = sourceJobs.filter((job) => selectedRows.has(job.id));
-
-    if (jobsToExport.length === 0) {
-      toast.error("Please select at least one job to export");
-      return;
-    }
-
-    const timestamp = new Date().toISOString().split("T")[0];
-    exportJobsToCSV(jobsToExport, `jobs_export_${timestamp}.csv`);
-    toast.success(`Exported ${jobsToExport.length} jobs to CSV`);
-  };
-
   // Row click → open job detail in new tab
   const handleRowClick = (row) => {
     window.open(`/dashboard/jobs/${row.id}`, "_blank");
@@ -253,6 +193,16 @@ export default function JobsView() {
     },
   ];
 
+  // Refetch when page, pageSize, or filters change
+  useEffect(() => {
+    fetchJobs();
+  }, [page, pageSize, filters]);
+
+  // Clear selection when jobs change
+  useEffect(() => {
+    handleClearSelection();
+  }, [jobs?.data]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -270,7 +220,10 @@ export default function JobsView() {
               Export ({selectedRows.size})
             </Button>
           )}
-          <SearchJobsDialog onSuccess={() => fetchJobs()} />
+          <Button onClick={searchModal.onTrue}>
+            <Search className="mr-2 h-4 w-4" />
+            Search Jobs
+          </Button>
         </div>
       </div>
 
@@ -281,7 +234,7 @@ export default function JobsView() {
 
       <SimpleTable
         columns={columns}
-        data={jobs?.jobs || []}
+        data={jobs?.data || []}
         isLoading={loading}
         onClick={handleRowClick}
         selectable
@@ -293,6 +246,12 @@ export default function JobsView() {
         sortConfig={sortConfig}
         onSort={handleSort}
         paginationProps={paginationProps}
+      />
+
+      <SearchJobsDialog
+        open={searchModal.value}
+        setOpen={searchModal.setValue}
+        refetch={fetchJobs}
       />
     </div>
   );

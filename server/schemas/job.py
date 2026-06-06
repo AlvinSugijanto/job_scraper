@@ -27,7 +27,7 @@ class JobsResponse(BaseModel):
     success: bool
     count: int
     total: int  # Total count for pagination
-    jobs: List[Job]
+    data: List[Job]
 
 
 class WebSocketSearchRequest(BaseModel):

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export function useFilters({ initialFilters = {}, resetPage } = {}) {
+export function useFilters({ initialFilters = {}, resetPage, paramMapping = {} } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -58,7 +58,32 @@ export function useFilters({ initialFilters = {}, resetPage } = {}) {
       resetPage?.();
       syncToUrl({ ...updates, page: 0 });
     },
-    [filters.sortBy, filters.sortOrder, resetPage, syncToUrl],
+    [filters.sortBy, filters.sortOrder, resetPage, syncToUrl]
+  );
+
+  const paramMappingRef = useRef(paramMapping);
+  paramMappingRef.current = paramMapping;
+
+  const getQueryParams = useCallback(
+    (additionalParams = {}) => {
+      const params = new URLSearchParams();
+
+      Object.entries(filters).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== "" && val !== "all") {
+          const paramKey = paramMappingRef.current[key] || key;
+          params.append(paramKey, val.toString());
+        }
+      });
+
+      Object.entries(additionalParams).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== "") {
+          params.set(key, val.toString());
+        }
+      });
+
+      return params;
+    },
+    [filters],
   );
 
   return {
@@ -66,5 +91,6 @@ export function useFilters({ initialFilters = {}, resetPage } = {}) {
     setFilter,
     setFilters,
     handleSort,
+    getQueryParams,
   };
 }

@@ -46,30 +46,50 @@ const AddKeywordModal = ({
     formState: { isSubmitting },
   } = methods;
 
+  useEffect(() => {
+    if (selectedItem) {
+      reset({
+        keyword: selectedItem.keyword,
+      });
+    } else {
+      reset({
+        keyword: "",
+      });
+    }
+  }, [selectedItem, reset]);
+
+  useEffect(() => {
+    return () => setSelectedItem(null);
+  }, []);
+
   const onSubmit = async (values) => {
     try {
-      await call(`/api/v1/banned-keywords/`, "POST", values);
-      toast.success("Keyword Successfully Created!");
+      const isEdit = !!selectedItem;
+      const url = isEdit
+        ? `/api/v1/banned-keywords/${selectedItem.id}`
+        : `/api/v1/banned-keywords/`;
+      const method = isEdit ? "PUT" : "POST";
+
+      await call(url, method, values);
+      toast.success(
+        isEdit
+          ? "Keyword Successfully Updated!"
+          : "Keyword Successfully Created!",
+      );
       setOpen(false);
       reset();
       refetch();
     } catch (error) {
       console.log(error);
       toast.error("Something error happened!");
+    } finally {
+      setSelectedItem(null);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (setSelectedItem) {
-        setSelectedItem(null);
-      }
-    };
-  }, [setSelectedItem]);
-
   return (
     <CustomModal
-      title={"Create Keyword"}
+      title={selectedItem ? "Edit Keyword" : "Create Keyword"}
       open={open}
       setOpen={setOpen}
       className="max-w-3xl"

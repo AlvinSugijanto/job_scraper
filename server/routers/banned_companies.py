@@ -49,3 +49,9 @@ def create(company: BannedCompanyCreate, db: Session = Depends(get_db)):
 def delete(company_id: int, db: Session = Depends(get_db)):
     """Menghapus company dari daftar banned list berdasarkan ID."""
     return banned_company_service.delete_company(db, company_id)
+
+
+@router.put("/{company_id}")
+def update(company_id: int, company: BannedCompanyCreate, db: Session = Depends(get_db)):
+    """Mengubah nama company terlarang yang sudah ada."""
+    return banned_company_service.update_company(db, company_id, company.name)

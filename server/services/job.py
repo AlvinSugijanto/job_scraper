@@ -49,7 +49,7 @@ def get_jobs(
         success=True,
         count=len(jobs),
         total=total,
-        jobs=[job.to_dict() for job in jobs],
+        data=[job.to_dict() for job in jobs],
     )
 
 

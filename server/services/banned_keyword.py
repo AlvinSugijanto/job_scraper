@@ -48,3 +48,16 @@ def delete_keyword(db: Session, keyword_id: int):
         raise HTTPException(status_code=404, detail="Banned keyword not found")
 
     return {"success": True, "message": "Banned keyword deleted successfully"}
+
+
+def update_keyword(db: Session, keyword_id: int, keyword: str):
+    """Update a banned keyword. Raises HTTPException if duplicate or not found."""
+    existing = banned_keyword_repo.find(db, keyword)
+    if existing and existing.id != keyword_id:
+        raise HTTPException(status_code=400, detail="Keyword already in banned list")
+
+    db_keyword = banned_keyword_repo.update(db, keyword_id, keyword)
+    if not db_keyword:
+        raise HTTPException(status_code=404, detail="Banned keyword not found")
+
+    return {"success": True, "data": db_keyword.to_dict()}
