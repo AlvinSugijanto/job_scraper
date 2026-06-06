@@ -56,3 +56,26 @@ def test_jobs_session_id_filtering(client, db_session):
     response_empty = client.get("/jobs?session_id=9999")
     assert response_empty.status_code == 200
     assert response_empty.json()["total"] == 0
+
+
+def test_get_stored_job(client, db_session):
+    job = Job(
+        id="test_job_detail_1",
+        title="Details Engineer",
+        company="Details Corp",
+        location="Bandung",
+        job_url="https://example.com/details",
+        session_id=None,
+    )
+    db_session.add(job)
+    db_session.commit()
+
+    # Get by ID
+    response = client.get("/jobs/test_job_detail_1")
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    assert response.json()["job"]["title"] == "Details Engineer"
+
+    # Get non-existent
+    response_404 = client.get("/jobs/non_existent_id")
+    assert response_404.status_code == 404

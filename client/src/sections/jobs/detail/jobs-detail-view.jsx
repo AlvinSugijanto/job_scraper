@@ -27,29 +27,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { getJob, deleteJob } from "@/api/jobs-api";
+import { useApi } from "@/hooks/use-api";
 import { JobDescription } from "@/components/jobs/job-description";
 import { fDate, fDateTime } from "@/utils/format-time";
 
 export default function JobDetailView({ id }) {
   const router = useRouter();
-  const [job, setJob] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, call, loading } = useApi();
 
   useEffect(() => {
-    const fetchJob = async () => {
-      try {
-        const data = await getJob(id);
-        setJob(data.job);
-      } catch (error) {
-        toast.error("Failed to fetch job details");
-      } finally {
-        setLoading(false);
-      }
-    };
+    call(`/api/v1/jobs/${id}`).catch((error) => {
+      toast.error("Failed to fetch job details");
+    });
+  }, [id, call]);
 
-    fetchJob();
-  }, [id]);
+  const job = data?.job;
 
   if (loading) {
     return (

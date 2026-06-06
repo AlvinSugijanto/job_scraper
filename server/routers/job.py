@@ -135,7 +135,7 @@ def get_stored_jobs(
     )
 
 
-@router.get("/jobs/{job_id}")
-def get_stored_job(job_id: str, db: Session = Depends(get_db)):
+@router.get("/{id}")
+def get_stored_job(id: str, db: Session = Depends(get_db)):
     """Ambil detail job tertentu dari database."""
-    return job_service.get_job(db, job_id)
+    return job_service.get_job(db, id)
