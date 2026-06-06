@@ -1,11 +1,11 @@
-"""Banned companies routes."""
+"""Banned Companies routes."""
 
 from fastapi import APIRouter, Query, Depends
 from typing import Optional
 from sqlalchemy.orm import Session
 
 from core import get_db
-from schemas import BannedCompanyCreate
+from schemas import BannedCompanyCreate, BannedCompanyUpdate
 from services import banned_company as banned_company_service
 
 router = APIRouter(
@@ -16,9 +16,9 @@ router = APIRouter(
 
 @router.get("")
 def get(
-    search: Optional[str] = Query(None, description="Search by company name"),
+    search: Optional[str] = Query(None, description="Search banned_companies"),
     sort_by: Optional[str] = Query(
-        "name", description="Sort by field: name, created_at"
+        "created_at", description="Sort by field: id, name, created_at"
     ),
     sort_order: Optional[str] = Query("asc", description="Sort order: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -27,9 +27,8 @@ def get(
     ),
     db: Session = Depends(get_db),
 ):
-    """Mendapatkan semua banned companies dengan pagination."""
-
-    return banned_company_service.get_companies(
+    """Mendapatkan semua Banned Companies dengan pagination."""
+    return banned_company_service.get(
         db,
         search=search,
         sort_by=sort_by,
@@ -40,18 +39,24 @@ def get(
 
 
 @router.post("")
-def create(company: BannedCompanyCreate, db: Session = Depends(get_db)):
-    """Menambahkan company baru ke dalam daftar banned list."""
-    return banned_company_service.create_company(db, company.name)
+def create(body: BannedCompanyCreate, db: Session = Depends(get_db)):
+    """Menambahkan Banned Company baru."""
+    return banned_company_service.create(db, body.dict())
 
 
-@router.delete("/{company_id}")
-def delete(company_id: int, db: Session = Depends(get_db)):
-    """Menghapus company dari daftar banned list berdasarkan ID."""
-    return banned_company_service.delete_company(db, company_id)
+@router.delete("/{id}")
+def delete(id: int, db: Session = Depends(get_db)):
+    """Menghapus Banned Company berdasarkan ID."""
+    return banned_company_service.delete(db, id)
 
 
-@router.put("/{company_id}")
-def update(company_id: int, company: BannedCompanyCreate, db: Session = Depends(get_db)):
-    """Mengubah nama company terlarang yang sudah ada."""
-    return banned_company_service.update_company(db, company_id, company.name)
+@router.put("/{id}")
+def update(id: int, body: BannedCompanyCreate, db: Session = Depends(get_db)):
+    """Mengubah data Banned Company yang sudah ada (Full Update)."""
+    return banned_company_service.update(db, id, body.dict())
+
+
+@router.patch("/{id}")
+def patch(id: int, body: BannedCompanyUpdate, db: Session = Depends(get_db)):
+    """Mengubah data Banned Company secara parsial (Partial Update)."""
+    return banned_company_service.update(db, id, body.dict(exclude_unset=True))

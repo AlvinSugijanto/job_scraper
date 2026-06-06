@@ -1,22 +1,23 @@
 """
-Service layer for banned keywords — business logic.
+Service layer for banned_keywords — business logic.
 """
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from typing import Optional
 from repositories import banned_keyword as banned_keyword_repo
 
 
-def get_keywords(
+def get(
     db: Session,
     search: str = None,
-    sort_by: str = "keyword",
+    sort_by: str = "created_at",
     sort_order: str = "asc",
     page: int = 1,
     per_page: int = 10,
 ):
-    """Get paginated banned keywords."""
-    keywords, total = banned_keyword_repo.get(
+    """Get paginated banned_keywords."""
+    records, total = banned_keyword_repo.get(
         db,
         search=search,
         sort_by=sort_by,
@@ -27,37 +28,38 @@ def get_keywords(
     return {
         "success": True,
         "total": total,
-        "data": [k.to_dict() for k in keywords],
+        "data": [r.to_dict() for r in records],
     }
 
 
-def create_keyword(db: Session, keyword: str):
-    """Create a new banned keyword. Raises HTTPException on duplicate."""
-    existing = banned_keyword_repo.find(db, keyword)
+def create(db: Session, data: dict):
+    """Create a new Banned Keyword. Raises HTTPException on duplicate."""
+    existing = banned_keyword_repo.find(db, data["keyword"])
     if existing:
-        raise HTTPException(status_code=400, detail="Keyword already in banned list")
+        raise HTTPException(status_code=400, detail="Banned Keyword already exists")
 
-    db_keyword = banned_keyword_repo.create(db, keyword)
-    return {"success": True, "data": db_keyword.to_dict()}
-
-
-def delete_keyword(db: Session, keyword_id: int):
-    """Delete a banned keyword. Raises HTTPException if not found."""
-    db_keyword = banned_keyword_repo.delete(db, keyword_id)
-    if not db_keyword:
-        raise HTTPException(status_code=404, detail="Banned keyword not found")
-
-    return {"success": True, "message": "Banned keyword deleted successfully"}
+    db_record = banned_keyword_repo.create(db, data)
+    return {"success": True, "data": db_record.to_dict()}
 
 
-def update_keyword(db: Session, keyword_id: int, keyword: str):
-    """Update a banned keyword. Raises HTTPException if duplicate or not found."""
-    existing = banned_keyword_repo.find(db, keyword)
-    if existing and existing.id != keyword_id:
-        raise HTTPException(status_code=400, detail="Keyword already in banned list")
+def delete(db: Session, id: int):
+    """Delete a Banned Keyword. Raises HTTPException if not found."""
+    db_record = banned_keyword_repo.delete(db, id)
+    if not db_record:
+        raise HTTPException(status_code=404, detail="Banned Keyword not found")
 
-    db_keyword = banned_keyword_repo.update(db, keyword_id, keyword)
-    if not db_keyword:
-        raise HTTPException(status_code=404, detail="Banned keyword not found")
+    return {"success": True, "message": "Banned Keyword deleted successfully"}
 
-    return {"success": True, "data": db_keyword.to_dict()}
+
+def update(db: Session, id: int, data: dict):
+    """Update a Banned Keyword. Raises HTTPException on duplicate/not found."""
+    if "keyword" in data:
+        existing = banned_keyword_repo.find(db, data["keyword"])
+        if existing and existing.id != id:
+            raise HTTPException(status_code=400, detail="Banned Keyword already exists")
+
+    db_record = banned_keyword_repo.update(db, id, data)
+    if not db_record:
+        raise HTTPException(status_code=404, detail="Banned Keyword not found")
+
+    return {"success": True, "data": db_record.to_dict()}

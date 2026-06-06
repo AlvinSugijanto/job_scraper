@@ -11,7 +11,9 @@
     "client:lint": "cd client && npm run lint",
     "client:setup": "cd client && npm install",
     "server:dev": "node scripts/server.js run",
-    "server:setup": "node scripts/server.js setup"
+    "server:setup": "node scripts/server.js setup",
+    "server:test": "node scripts/server.js test",
+    "test": "npm run server:test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

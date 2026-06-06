@@ -1,22 +1,23 @@
 """
-Service layer for banned companies — business logic.
+Service layer for banned_companies — business logic.
 """
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from typing import Optional
 from repositories import banned_company as banned_company_repo
 
 
-def get_companies(
+def get(
     db: Session,
     search: str = None,
-    sort_by: str = "name",
+    sort_by: str = "created_at",
     sort_order: str = "asc",
     page: int = 1,
     per_page: int = 10,
 ):
-    """Get paginated banned companies."""
-    companies, total = banned_company_repo.get(
+    """Get paginated banned_companies."""
+    records, total = banned_company_repo.get(
         db,
         search=search,
         sort_by=sort_by,
@@ -27,37 +28,38 @@ def get_companies(
     return {
         "success": True,
         "total": total,
-        "data": [c.to_dict() for c in companies],
+        "data": [r.to_dict() for r in records],
     }
 
 
-def create_company(db: Session, name: str):
-    """Create a new banned company. Raises HTTPException on duplicate."""
-    existing = banned_company_repo.find(db, name)
+def create(db: Session, data: dict):
+    """Create a new Banned Company. Raises HTTPException on duplicate."""
+    existing = banned_company_repo.find(db, data["name"])
     if existing:
-        raise HTTPException(status_code=400, detail="Company already in banned list")
+        raise HTTPException(status_code=400, detail="Banned Company already exists")
 
-    db_company = banned_company_repo.create(db, name)
-    return {"success": True, "data": db_company.to_dict()}
-
-
-def delete_company(db: Session, company_id: int):
-    """Delete a banned company. Raises HTTPException if not found."""
-    db_company = banned_company_repo.delete(db, company_id)
-    if not db_company:
-        raise HTTPException(status_code=404, detail="Banned company not found")
-
-    return {"success": True, "message": "Banned company deleted successfully"}
+    db_record = banned_company_repo.create(db, data)
+    return {"success": True, "data": db_record.to_dict()}
 
 
-def update_company(db: Session, company_id: int, name: str):
-    """Update a banned company name. Raises HTTPException if duplicate or not found."""
-    existing = banned_company_repo.find(db, name)
-    if existing and existing.id != company_id:
-        raise HTTPException(status_code=400, detail="Company already in banned list")
+def delete(db: Session, id: int):
+    """Delete a Banned Company. Raises HTTPException if not found."""
+    db_record = banned_company_repo.delete(db, id)
+    if not db_record:
+        raise HTTPException(status_code=404, detail="Banned Company not found")
 
-    db_company = banned_company_repo.update(db, company_id, name)
-    if not db_company:
-        raise HTTPException(status_code=404, detail="Banned company not found")
+    return {"success": True, "message": "Banned Company deleted successfully"}
 
-    return {"success": True, "data": db_company.to_dict()}
+
+def update(db: Session, id: int, data: dict):
+    """Update a Banned Company. Raises HTTPException on duplicate/not found."""
+    if "name" in data:
+        existing = banned_company_repo.find(db, data["name"])
+        if existing and existing.id != id:
+            raise HTTPException(status_code=400, detail="Banned Company already exists")
+
+    db_record = banned_company_repo.update(db, id, data)
+    if not db_record:
+        raise HTTPException(status_code=404, detail="Banned Company not found")
+
+    return {"success": True, "data": db_record.to_dict()}

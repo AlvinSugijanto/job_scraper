@@ -52,7 +52,7 @@ const AddCompanyModal = ({
       const url = isEdit
         ? `/api/v1/banned-companies/${selectedItem.id}`
         : `/api/v1/banned-companies/`;
-      const method = isEdit ? "PUT" : "POST";
+      const method = isEdit ? "PATCH" : "POST";
 
       await call(url, method, values);
       toast.success(

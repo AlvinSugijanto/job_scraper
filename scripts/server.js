@@ -31,6 +31,7 @@ const getGlobalPythonCommand = () => {
 
 const args = process.argv.slice(2);
 const command = args[0] || 'run';
+const extraArgs = args.slice(1);
 
 if (command === 'setup') {
   const pythonCmd = getGlobalPythonCommand();
@@ -87,7 +88,26 @@ if (command === 'setup') {
   serverProcess.on('close', (code) => {
     process.exit(code);
   });
+} else if (command === 'test') {
+  const pythonExe = getVenvPython();
+  
+  if (!fs.existsSync(pythonExe)) {
+    console.error(`[Error] Virtual environment not found at: ${pythonExe}`);
+    console.error('[Error] Please run "npm run setup" first to initialize the project environment.');
+    process.exit(1);
+  }
+
+  console.log(`[Test] Running tests using: ${pythonExe}...`);
+  const testProcess = spawn(pythonExe, ['-m', 'pytest', '-v', ...extraArgs], {
+    cwd: serverDir,
+    stdio: 'inherit',
+    shell: false
+  });
+
+  testProcess.on('close', (code) => {
+    process.exit(code);
+  });
 } else {
-  console.error(`[Error] Unknown command: ${command}. Use "setup" or "run".`);
+  console.error(`[Error] Unknown command: ${command}. Use "setup", "run", or "test".`);
   process.exit(1);
 }

@@ -37,7 +37,7 @@ from core import engine, get_db, Base
 from core import manager
 from schemas import WebSocketSearchRequest
 from services import job as job_service
-from routers import job_router, banned_companies_router, banned_keywords_router
+from routers import job_router, banned_companies_router, banned_keywords_router, sessions_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -63,6 +63,7 @@ app.add_middleware(
 app.include_router(job_router)
 app.include_router(banned_companies_router)
 app.include_router(banned_keywords_router)
+app.include_router(sessions_router)
 
 
 # ============ ROUTES ============

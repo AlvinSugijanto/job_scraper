@@ -6,3 +6,5 @@ pydantic
 sqlalchemy
 websockets
 playwright
+pytest
+httpx

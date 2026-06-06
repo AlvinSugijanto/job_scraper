@@ -8,14 +8,16 @@ from .job import (
     WebSocketSearchRequest,
 )
 
-from .banned_company import BannedCompanyCreate
-from .banned_keyword import BannedKeywordCreate
 
 
+from .banned_company import BannedCompanyCreate, BannedCompanyUpdate
+from .banned_keyword import BannedKeywordCreate, BannedKeywordUpdate
+from .sessions import SessionsCreate, SessionsUpdate
 __all__ = [
     "Job",
     "JobsResponse",
     "WebSocketSearchRequest",
     "BannedCompanyCreate",
     "BannedKeywordCreate",
+    "SessionsCreate",
 ]

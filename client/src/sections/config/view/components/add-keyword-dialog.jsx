@@ -68,7 +68,7 @@ const AddKeywordModal = ({
       const url = isEdit
         ? `/api/v1/banned-keywords/${selectedItem.id}`
         : `/api/v1/banned-keywords/`;
-      const method = isEdit ? "PUT" : "POST";
+      const method = isEdit ? "PATCH" : "POST";
 
       await call(url, method, values);
       toast.success(
