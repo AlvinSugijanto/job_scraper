@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -36,12 +36,12 @@ export default function JobDetailView({ id }) {
   const { data, call, loading } = useApi();
 
   useEffect(() => {
-    call(`/api/v1/jobs/${id}`).catch((error) => {
-      toast.error("Failed to fetch job details");
-    });
-  }, [id, call]);
+    call(`/api/v1/jobs/${id}`)
+  }, []);
 
-  const job = data?.job;
+  const job = useMemo(()=>{
+    return data?.job || null
+  },[data]) 
 
   if (loading) {
     return (
