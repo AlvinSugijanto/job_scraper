@@ -46,6 +46,9 @@ class JobType(str, Enum):
 
         text_lower = text.lower()
 
+        # Hybrid detection
+        if re.search(r"\bhybrid\b", text_lower):
+            return cls.hybrid
         # Remote detection
         if (
             re.search(r"\bremote\b", text_lower)
@@ -53,9 +56,5 @@ class JobType(str, Enum):
             or re.search(r"\bwfh\b", text_lower)
         ):
             return cls.remote
-
-        # Hybrid detection
-        if re.search(r"\bhybrid\b", text_lower):
-            return cls.hybrid
 
         return cls.onsite

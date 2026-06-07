@@ -98,11 +98,25 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
 
     # Get database session
     db = next(get_db())
+    request = None
 
     try:
         # Wait for search request from client
         data = await websocket.receive_json()
         request = WebSocketSearchRequest(**data)
+
+        # Update session status to running
+        if request.session_id is not None:
+            from repositories import sessions as sessions_repo
+            from datetime import datetime
+            sessions_repo.update(
+                db,
+                request.session_id,
+                {
+                    "status": "running",
+                    "start_run_time": datetime.utcnow(),
+                },
+            )
 
         # Notify: started
         await manager.send_started(client_id, f"Searching for '{request.keywords}'...")
@@ -165,10 +179,53 @@ async def websocket_scrape(websocket: WebSocket, client_id: str):
         # Notify: completed
         await manager.send_completed(client_id, len(all_jobs), new_count)
 
+        # Update session status to success
+        if request.session_id is not None:
+            from repositories import sessions as sessions_repo
+            from datetime import datetime
+            sessions_repo.update(
+                db,
+                request.session_id,
+                {
+                    "status": "success",
+                    "end_run_time": datetime.utcnow(),
+                    "total_jobs": len(all_jobs),
+                },
+            )
+
     except WebSocketDisconnect:
-        pass
+        if request and request.session_id is not None:
+            from repositories import sessions as sessions_repo
+            from datetime import datetime
+            try:
+                db.rollback()
+                sessions_repo.update(
+                    db,
+                    request.session_id,
+                    {
+                        "status": "failed",
+                        "end_run_time": datetime.utcnow(),
+                    },
+                )
+            except Exception as update_err:
+                logger.error(f"Failed to update session status to failed: {update_err}")
     except Exception as e:
         await manager.send_error(client_id, str(e))
+        if request and request.session_id is not None:
+            from repositories import sessions as sessions_repo
+            from datetime import datetime
+            try:
+                db.rollback()
+                sessions_repo.update(
+                    db,
+                    request.session_id,
+                    {
+                        "status": "failed",
+                        "end_run_time": datetime.utcnow(),
+                    },
+                )
+            except Exception as update_err:
+                logger.error(f"Failed to update session status to failed: {update_err}")
     finally:
         manager.disconnect(client_id)
         db.close()

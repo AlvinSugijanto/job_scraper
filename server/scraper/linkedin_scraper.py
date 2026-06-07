@@ -1,5 +1,5 @@
 """
-LinkedIn Job Scraper - Core Functions
+LinkedIn Job Scraper - Refactored
 """
 
 from schemas import WebSocketSearchRequest
@@ -9,18 +9,18 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
 from enums import JobContractType, JobType
 from core import ConnectionManager
-import requests
 import random
 import asyncio
 from datetime import datetime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
-from repositories import banned_company
+from repositories import banned_company, banned_keyword
 
 
 # ============ CONFIG ============
@@ -48,8 +48,21 @@ JOB_TYPE_CODES = {
     "onsite": 1,
 }
 
+# Timeout and Delay Configs
+CLIENT_TIMEOUT = 10
+DESCRIPTION_TIMEOUT = 10
 
-# ============ MAIN FUNCTIONS ============
+CARD_DELAY_MIN = 5
+CARD_DELAY_MAX = 10
+
+PAGE_DELAY_MIN = 10
+PAGE_DELAY_MAX = 20
+
+RATE_LIMIT_WAIT_MIN = 30
+RATE_LIMIT_WAIT_MAX = 50
+
+
+# ============ MAIN FUNCTION ============
 
 
 async def search_jobs_linkedin(
@@ -57,14 +70,7 @@ async def search_jobs_linkedin(
     existing_ids: set = None,
     manager: ConnectionManager = None,
     client_id: str = "",
-):
-    """
-    Async version of search_jobs with progress callback support.
-
-    Args:
-        on_progress: Async callback function(event_type, data)
-                    event_type: 'fetching_page', 'rate_limit', 'parsing', 'job_found'
-    """
+) -> list:
     logger.info(
         f"[LinkedIn] Scraper started | keywords='{request.keywords}' | "
         f"location='{request.location}' | results_wanted={request.results_wanted} | "
@@ -74,225 +80,61 @@ async def search_jobs_linkedin(
 
     jobs = []
     seen_ids = existing_ids.copy() if existing_ids else set()
-
-    # Load banned companies from database
-    try:
-        from core.database import SessionLocal
-
-        db = SessionLocal()
-        banned_companies = banned_company.getAll(db)
-        banned_names = {c.name.strip().lower() for c in banned_companies}
-        db.close()
-        logger.info(
-            f"[LinkedIn] Loaded {len(banned_names)} banned companies from database."
-        )
-    except Exception as e:
-        logger.error(f"[LinkedIn] Failed to load banned companies from DB: {e}")
-        banned_names = set()
-
-    start = 0
-    page = 1
-    total_cards_parsed = 0
-    total_cards_skipped_duplicate = 0
-    total_cards_skipped_accuracy = 0
-    rate_limit_hits = 0
+    banned_names, banned_keywords = _load_banned_filters()
     scrape_start_time = datetime.now()
+    stats = {
+        "parsed": 0,
+        "skipped_duplicate": 0,
+        "skipped_accuracy": 0,
+        "skipped_keyword": 0,
+        "rate_limit_hits": 0,
+        "jobs_found": 0,
+    }
 
-    session = requests.Session()
-    session.headers.update(HEADERS)
-
-    max_pages = random.randint(5, 15)
-
-    while len(jobs) < request.results_wanted and page <= max_pages:
-        if manager and manager.is_cancelled(client_id):
-            logger.info(
-                f"[LinkedIn] Scrape cancelled by client '{client_id}' on page {page}."
-            )
-            break
-
-        logger.debug(
-            f"[LinkedIn] Fetching page {page} | start={start} | jobs_collected={len(jobs)}"
-        )
-
-        # Notify: fetching page
-        if manager:
-            await manager.send_fetching_page(
-                client_id, page, len(jobs), portal="LinkedIn"
-            )
-
-        # Build params
-        params = {
-            "keywords": request.keywords,
-            "location": request.location,
-            "start": start,
-            "pageNum": 0,
-        }
-
-        if request.distance:
-            params["distance"] = request.distance
-        if request.job_contract and request.job_contract in JOB_CONTRACT_CODES:
-            params["f_JT"] = JOB_CONTRACT_CODES[request.job_contract]
-        if request.job_type and request.job_type in JOB_TYPE_CODES:
-            params["f_WT"] = JOB_TYPE_CODES[request.job_type]
-        if request.easy_apply:
-            params["f_AL"] = "true"
-        if request.hours_old:
-            params["f_TPR"] = f"r{request.hours_old * 3600}"
-
-        query_string = "&".join([f"{key}={value}" for key, value in params.items()])
-        print(
-            "url",
-            f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search?{query_string}",
-        )
-        # Make request
-        try:
-            response = session.get(
-                f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
-                params=params,
-                timeout=10,
-            )
-
-            if response.status_code == 429:
-                rate_limit_hits += 1
-                wait_seconds = 30
-                logger.warning(
-                    f"[LinkedIn] Rate limit (429) hit on page {page} "
-                    f"(total hits so far: {rate_limit_hits}). "
-                    f"Waiting {wait_seconds}s before retry..."
-                )
-                if manager:
-                    await manager.send_rate_limit(
-                        client_id, wait_seconds, portal="LinkedIn"
-                    )
-                await asyncio.sleep(wait_seconds)
-                continue
-
-            if response.status_code != 200:
-                logger.error(
-                    f"[LinkedIn] Unexpected HTTP {response.status_code} on page {page}. "
-                    f"Aborting scrape."
-                )
-                break
-
-        except Exception as e:
-            logger.error(
-                f"[LinkedIn] Request failed on page {page} | error={type(e).__name__}: {e}"
-            )
-            break
-
-        # Parse HTML
-        soup = BeautifulSoup(response.text, "html.parser")
-        job_cards = soup.find_all("div", class_="base-search-card")
-
-        if not job_cards:
-            logger.info(
-                f"[LinkedIn] No job cards found on page {page}. End of results."
-            )
-            break
-
-        logger.info(
-            f"[LinkedIn] Page {page} | {len(job_cards)} cards found | "
-            f"jobs_collected={len(jobs)}/{request.results_wanted}"
-        )
-
-        # Dump raw HTML cards
-        from dumps.dumps_to_json import dump_raw_to_json
-
-        raw_cards = [str(card) for card in job_cards]
-        dump_raw_to_json(raw_cards, source="linkedin")
-
-        # Extract jobs from cards
-        page_new_jobs = 0
-        for i, card in enumerate(job_cards):
-            if manager and manager.is_cancelled(client_id):
-                logger.info(
-                    f"[LinkedIn] Scrape cancelled mid-page by client '{client_id}' "
-                    f"(card {i + 1}/{len(job_cards)} on page {page})."
-                )
-                break
-
-            if manager:
-                await manager.send_parsing(client_id, i + 1, len(job_cards))
-
-            job = parse_job_card(card, session)
-            total_cards_parsed += 1
-            await asyncio.sleep(random.uniform(1, 3))
-
-            if not job:
-                logger.debug(
-                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: failed to parse, skipping."
-                )
-                total_cards_skipped_duplicate += 1
-                continue
-
-            if job.get("company"):
-                company_clean = job["company"].strip().lower()
-                if company_clean in banned_names:
+    async with httpx.AsyncClient(headers=HEADERS, timeout=CLIENT_TIMEOUT) as client:
+        async for page, job_cards in _fetch_pages(
+            client, request, manager, client_id, stats
+        ):
+            for i, card in enumerate(job_cards):
+                if manager and manager.is_cancelled(client_id):
                     logger.info(
-                        f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
-                        f"company '{job['company']}' is in banned list, skipping."
+                        f"[LinkedIn] Cancelled mid-page by '{client_id}' (card {i + 1}/{len(job_cards)} page {page})."
                     )
-                    continue
+                    break
 
-            if job["id"] in seen_ids:
-                logger.debug(
-                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
-                    f"duplicate job_id='{job['id']}', skipping."
+                if manager:
+                    await manager.send_parsing(client_id, i + 1, len(job_cards))
+
+                job = await _process_card(
+                    client,
+                    card,
+                    seen_ids,
+                    banned_names,
+                    banned_keywords,
+                    request,
+                    stats,
                 )
-                total_cards_skipped_duplicate += 1
-                continue
+                await asyncio.sleep(random.uniform(CARD_DELAY_MIN, CARD_DELAY_MAX))
 
-            seen_ids.add(job["id"])
-            combined_text = " ".join(
-                [
-                    job["description"] or "",
-                    job["title"] or "",
-                    job["location"] or "",
-                ]
-            )
+                if job:
+                    jobs.append(job)
+                    stats["jobs_found"] += 1
+                    if len(jobs) >= request.results_wanted:
+                        logger.info(
+                            f"[LinkedIn] Target of {request.results_wanted} jobs reached."
+                        )
+                        break
 
-            if not check_accuracy(combined_text, request):
-                logger.debug(
-                    f"[LinkedIn] Card {i + 1}/{len(job_cards)} on page {page}: "
-                    f"accuracy check failed for job_id='{job['id']}' "
-                    f"(title='{job['title']}'), skipping."
-                )
-                total_cards_skipped_accuracy += 1
-                continue
-
-            jobs.append(job)
-            page_new_jobs += 1
-            logger.debug(
-                f"[LinkedIn] Job accepted | id='{job['id']}' | "
-                f"title='{job['title']}' | company='{job['company']}' | "
-                f"location='{job['location']}' | "
-                f"job_contract={job['job_contract']} | job_type={job['job_type']}"
+            logger.info(
+                f"[LinkedIn] Page {page} done | total_collected={len(jobs)} | "
+                f"skipped_duplicate={stats['skipped_duplicate']} | "
+                f"skipped_accuracy={stats['skipped_accuracy']} | "
+                f"skipped_keyword={stats['skipped_keyword']}"
             )
 
             if len(jobs) >= request.results_wanted:
-                logger.info(
-                    f"[LinkedIn] Target of {request.results_wanted} jobs reached on page {page}."
-                )
                 break
 
-        logger.info(
-            f"[LinkedIn] Page {page} done | new_jobs_this_page={page_new_jobs} | "
-            f"total_collected={len(jobs)} | skipped_duplicate={total_cards_skipped_duplicate} | "
-            f"skipped_accuracy={total_cards_skipped_accuracy}"
-        )
-
-        # Delay before next page
-        start += len(job_cards)
-        page += 1
-
-        if len(jobs) < request.results_wanted:
-            delay = random.uniform(2, 5)
-            logger.debug(
-                f"[LinkedIn] Waiting {delay:.1f}s before fetching next page..."
-            )
-            await asyncio.sleep(delay)
-
-    # Dump parsed results
     if jobs:
         from dumps.dumps_to_json import dump_to_json
 
@@ -300,23 +142,220 @@ async def search_jobs_linkedin(
 
     elapsed = (datetime.now() - scrape_start_time).total_seconds()
     logger.info(
-        f"[LinkedIn] Scraper finished | "
-        f"pages_fetched={page - 1} | "
-        f"cards_parsed={total_cards_parsed} | "
-        f"jobs_collected={len(jobs)} | "
-        f"skipped_duplicate={total_cards_skipped_duplicate} | "
-        f"skipped_accuracy={total_cards_skipped_accuracy} | "
-        f"rate_limit_hits={rate_limit_hits} | "
+        f"[LinkedIn] Scraper finished | jobs_collected={len(jobs)} | "
+        f"cards_parsed={stats['parsed']} | rate_limit_hits={stats['rate_limit_hits']} | "
         f"elapsed={elapsed:.1f}s"
     )
 
     return jobs
 
 
-def parse_job_card(card, session=None):
+# ============ PRIVATE HELPERS ============
+
+
+def _load_banned_filters() -> tuple[set, set]:
+    """Load banned companies and keywords from database."""
+    try:
+        from core.database import SessionLocal
+
+        db = SessionLocal()
+        banned_names = {c.name.strip().lower() for c in banned_company.getAll(db)}
+        banned_keywords = {k.keyword.strip().lower() for k in banned_keyword.getAll(db)}
+        db.close()
+        logger.info(
+            f"[LinkedIn] Loaded {len(banned_names)} banned companies and {len(banned_keywords)} banned keywords."
+        )
+        return banned_names, banned_keywords
+    except Exception as e:
+        logger.error(f"[LinkedIn] Failed to load banned filters from DB: {e}")
+        return set(), set()
+
+
+async def _fetch_pages(
+    client: httpx.AsyncClient,
+    request: WebSocketSearchRequest,
+    manager: ConnectionManager,
+    client_id: str,
+    stats: dict,
+):
+    """Async generator — yields (page_number, job_cards[]) per page."""
+    start = 0
+    page = 1
+    max_pages = random.randint(5, 15)
+
+    while page <= max_pages:
+        if manager and manager.is_cancelled(client_id):
+            logger.info(f"[LinkedIn] Scrape cancelled by '{client_id}' on page {page}.")
+            return
+
+        if manager:
+            await manager.send_fetching_page(
+                client_id, page, stats["jobs_found"], portal="LinkedIn"
+            )
+
+        params = _build_params(request, start)
+        job_cards = await _fetch_page_with_retry(
+            client, params, page, manager, client_id, stats
+        )
+
+        if job_cards is None:  # unrecoverable error
+            return
+        if not job_cards:  # empty page = end of results
+            break
+
+        yield page, job_cards
+
+        start += len(job_cards)
+        page += 1
+        await asyncio.sleep(random.uniform(PAGE_DELAY_MIN, PAGE_DELAY_MAX))
+
+
+def _build_params(request: WebSocketSearchRequest, start: int) -> dict:
+    """Build LinkedIn search query params."""
+    params = {
+        "keywords": request.keywords,
+        "location": request.location,
+        "start": start,
+        "pageNum": 0,
+    }
+    if request.distance:
+        params["distance"] = request.distance
+    if request.job_contract and request.job_contract in JOB_CONTRACT_CODES:
+        params["f_JT"] = JOB_CONTRACT_CODES[request.job_contract]
+    if request.job_type and request.job_type in JOB_TYPE_CODES:
+        params["f_WT"] = JOB_TYPE_CODES[request.job_type]
+    if request.easy_apply:
+        params["f_AL"] = "true"
+    if request.hours_old:
+        params["f_TPR"] = f"r{request.hours_old * 3600}"
+    return params
+
+
+async def _fetch_page_with_retry(
+    client: httpx.AsyncClient,
+    params: dict,
+    page: int,
+    manager: ConnectionManager,
+    client_id: str,
+    stats: dict,
+) -> list | None:
+    """Fetch a single search result page. Returns card list, empty list, or None on error."""
+    try:
+        response = await client.get(
+            f"{BASE_URL}/jobs-guest/jobs/api/seeMoreJobPostings/search",
+            params=params,
+        )
+
+        if response.status_code == 429:
+            stats["rate_limit_hits"] += 1
+            wait_seconds = random.uniform(RATE_LIMIT_WAIT_MIN, RATE_LIMIT_WAIT_MAX)
+            logger.warning(
+                f"[LinkedIn] Rate limit on page {page}. Waiting {wait_seconds:.1f}s..."
+            )
+            if manager:
+                await manager.send_rate_limit(
+                    client_id, wait_seconds, portal="LinkedIn"
+                )
+            await asyncio.sleep(wait_seconds)
+            return await _fetch_page_with_retry(
+                client, params, page, manager, client_id, stats
+            )
+
+        if response.status_code != 200:
+            logger.error(
+                f"[LinkedIn] HTTP {response.status_code} on page {page}. Aborting."
+            )
+            return None
+
+    except Exception as e:
+        logger.error(
+            f"[LinkedIn] Request failed on page {page} | {type(e).__name__}: {e}"
+        )
+        return None
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    job_cards = soup.find_all("div", class_="base-search-card")
+
+    if not job_cards:
+        logger.info(f"[LinkedIn] No cards on page {page}. End of results.")
+
+    return job_cards
+
+
+async def _process_card(
+    client: httpx.AsyncClient,
+    card,
+    seen_ids: set,
+    banned_names: set,
+    banned_keywords: set,
+    request: WebSocketSearchRequest,
+    stats: dict,
+) -> dict | None:
+    """Parse a card and run all filters. Returns job dict or None if filtered out."""
+    job = await _parse_job_card(client, card)
+    stats["parsed"] += 1
+
+    if not job:
+        return None
+
+    if not _passes_filters(
+        job, seen_ids, banned_names, banned_keywords, request, stats
+    ):
+        return None
+
+    seen_ids.add(job["id"])
+    logger.debug(
+        f"[LinkedIn] Job accepted | id='{job['id']}' | title='{job['title']}' | "
+        f"company='{job['company']}' | location='{job['location']}'"
+    )
+    return job
+
+
+def _passes_filters(
+    job: dict,
+    seen_ids: set,
+    banned_names: set,
+    banned_keywords: set,
+    request: WebSocketSearchRequest,
+    stats: dict,
+) -> bool:
+    """Pure filter logic — no side effects except stats increment."""
+    if job.get("company") and job["company"].strip().lower() in banned_names:
+        logger.info(f"[LinkedIn] Banned company: '{job['company']}', skipping.")
+        return False
+
+    if job["id"] in seen_ids:
+        logger.info(
+            f"[LinkedIn] Duplicate job ID: '{job['id']}' ({job['title']}), skipping."
+        )
+        stats["skipped_duplicate"] += 1
+        return False
+
+    combined_text = " ".join(
+        [job["description"] or "", job["title"] or "", job["location"] or ""]
+    )
+
+    if not _check_accuracy(combined_text, request):
+        logger.info(
+            f"[LinkedIn] Accuracy check failed for job ID: '{job['id']}' ({job['title']}), skipping."
+        )
+        stats["skipped_accuracy"] += 1
+        return False
+
+    matched_keyword = next(
+        (kw for kw in banned_keywords if kw in combined_text.lower()), None
+    )
+    if matched_keyword:
+        logger.info(f"[LinkedIn] Banned keyword '{matched_keyword}' found, skipping.")
+        stats["skipped_keyword"] += 1
+        return False
+
+    return True
+
+
+async def _parse_job_card(client: httpx.AsyncClient, card) -> dict | None:
     """Parse a single job card HTML element."""
     try:
-        # Get job URL and ID
         link = card.find("a", class_="base-card__full-link")
         if not link or "href" not in link.attrs:
             return None
@@ -324,11 +363,9 @@ def parse_job_card(card, session=None):
         href = link["href"].split("?")[0]
         job_id = href.split("-")[-1]
 
-        # Title
         title_tag = card.find("span", class_="sr-only")
         title = title_tag.get_text(strip=True) if title_tag else "N/A"
 
-        # Company
         company_tag = card.find("h4", class_="base-search-card__subtitle")
         company_link = company_tag.find("a") if company_tag else None
         company = company_link.get_text(strip=True) if company_link else "N/A"
@@ -336,15 +373,12 @@ def parse_job_card(card, session=None):
         if company_link and company_link.has_attr("href"):
             company_url = urlunparse(urlparse(company_link["href"])._replace(query=""))
 
-        # Location
         location_tag = card.find("span", class_="job-search-card__location")
         location = location_tag.get_text(strip=True) if location_tag else "N/A"
 
-        # Salary (if available)
         salary_tag = card.find("span", class_="job-search-card__salary-info")
         salary = salary_tag.get_text(strip=True) if salary_tag else None
 
-        # Date posted
         date_tag = card.find("time", class_="job-search-card__listdate")
         date_posted = None
         if date_tag and "datetime" in date_tag.attrs:
@@ -353,7 +387,10 @@ def parse_job_card(card, session=None):
             except Exception:
                 logger.debug(f"[LinkedIn] Failed to parse date for job_id='{job_id}'")
 
-        job = {
+        description = await _get_job_description(client, job_id)
+        combined_text = " ".join([description or "", title, location])
+
+        return {
             "id": job_id,
             "title": title,
             "company": company,
@@ -362,82 +399,59 @@ def parse_job_card(card, session=None):
             "salary": salary,
             "date_posted": date_posted.strftime("%Y-%m-%d") if date_posted else None,
             "job_url": f"{BASE_URL}/jobs/view/{job_id}",
-            "description": None,
-            "job_contract": None,
+            "description": description,
+            "job_contract": JobContractType.detect(combined_text),
+            "job_type": JobType.detect(combined_text),
             "source": "linkedin",
-            "job_type": None,
         }
 
-        # Fetch full description if session provided
-        if session:
-            job_details = get_job_description(session, job_id)
-            job["description"] = job_details["description"]
-
-        combined_text = " ".join(
-            [
-                job["description"] or "",
-                job["title"] or "",
-                job["location"] or "",
-            ]
-        )
-
-        job["job_contract"] = JobContractType.detect(combined_text)
-        job["job_type"] = JobType.detect(combined_text)
-
-        return job
-
     except Exception as e:
-        logger.debug(f"[LinkedIn] parse_job_card error: {type(e).__name__}: {e}")
+        logger.debug(f"[LinkedIn] _parse_job_card error: {type(e).__name__}: {e}")
         return None
 
 
-def get_job_description(session, job_id):
-    """Fetch full job description from job detail page."""
+async def _get_job_description(client: httpx.AsyncClient, job_id: str) -> str | None:
+    """Fetch full job description. Returns HTML string or None."""
     try:
-        response = session.get(f"{BASE_URL}/jobs/view/{job_id}", timeout=5)
+        response = await client.get(
+            f"{BASE_URL}/jobs/view/{job_id}", timeout=DESCRIPTION_TIMEOUT
+        )
+
+        if response.status_code == 429:
+            wait_seconds = random.uniform(RATE_LIMIT_WAIT_MIN, RATE_LIMIT_WAIT_MAX)
+            logger.warning(
+                f"[LinkedIn] 429 on description fetch for job_id='{job_id}'. Sleeping {wait_seconds:.1f}s..."
+            )
+            await asyncio.sleep(wait_seconds)
+            return await _get_job_description(client, job_id)
+
         if response.status_code != 200:
             logger.debug(
-                f"[LinkedIn] get_job_description: HTTP {response.status_code} "
-                f"for job_id='{job_id}'"
+                f"[LinkedIn] _get_job_description: HTTP {response.status_code} for job_id='{job_id}'"
             )
-            return {"description": None}
+            return None
 
         soup = BeautifulSoup(response.text, "html.parser")
         desc_div = soup.find(
             "div", class_=lambda x: x and "show-more-less-html__markup" in x
         )
-        description = str(desc_div) if desc_div else None
-
-        if not description:
-            logger.debug(
-                f"[LinkedIn] get_job_description: no description found for job_id='{job_id}'"
-            )
-
-        return {"description": description}
+        return str(desc_div) if desc_div else None
 
     except Exception as e:
         logger.debug(
-            f"[LinkedIn] get_job_description failed for job_id='{job_id}' | "
-            f"{type(e).__name__}: {e}"
+            f"[LinkedIn] _get_job_description failed for job_id='{job_id}' | {type(e).__name__}: {e}"
         )
-        return {"description": None}
+        return None
 
 
-def check_accuracy(combined_text: str, request: WebSocketSearchRequest):
-    """
-    Check if the detected job_contract / job_type from the combined_text
-    matches what was requested.
-    """
+def _check_accuracy(combined_text: str, request: WebSocketSearchRequest) -> bool:
+    """Check if job contract/type matches the request."""
     if request.job_contract:
-        detected_contract = JobContractType.detect(combined_text)
-        if detected_contract.value != request.job_contract:
+        if JobContractType.detect(combined_text).value != request.job_contract:
             return False
-
     if request.job_type:
-        detected_type = JobType.detect(combined_text)
-        if detected_type.value != request.job_type:
+        if JobType.detect(combined_text).value != request.job_type:
             return False
-
     return True
 
 

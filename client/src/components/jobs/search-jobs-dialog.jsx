@@ -37,7 +37,6 @@ const formSchema = z.object({
 export function SearchJobsDialog({ open, setOpen, refetch }) {
   const scraping = useScrapingProgress();
   const { call: callApi } = useApi();
-  const [currentSessionId, setCurrentSessionId] = useState(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   const methods = useForm({
@@ -65,7 +64,6 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
       }
       scraping.reset();
       reset();
-      setCurrentSessionId(null);
     }
   }, [open, reset, setValue]);
 
@@ -77,27 +75,7 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
     }
   }, [scraping.status]);
 
-  // Update session status based on scraping progress status
-  useEffect(() => {
-    if (!currentSessionId) return;
 
-    if (scraping.status === "completed" && scraping.result) {
-      callApi(`/api/v1/sessions/${currentSessionId}`, "PATCH", {
-        status: "completed",
-        total_jobs: scraping.result.total,
-        end_run_time: new Date().toISOString(),
-      }).catch((err) => {
-        console.error("Failed to update session to completed:", err);
-      });
-    } else if (scraping.status === "error") {
-      callApi(`/api/v1/sessions/${currentSessionId}`, "PATCH", {
-        status: "failed",
-        end_run_time: new Date().toISOString(),
-      }).catch((err) => {
-        console.error("Failed to update session to failed:", err);
-      });
-    }
-  }, [scraping.status, scraping.result, currentSessionId]);
 
   const onSubmit = async (data) => {
     try {
@@ -116,7 +94,6 @@ export function SearchJobsDialog({ open, setOpen, refetch }) {
       );
       const createdSession = sessionResp.data;
       const sessionId = createdSession.id;
-      setCurrentSessionId(sessionId);
 
       const params = {
         keywords: data.keywords,

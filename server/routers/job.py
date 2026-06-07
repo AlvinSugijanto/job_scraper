@@ -1,7 +1,6 @@
 """Job routes."""
 
 import logging
-import asyncio
 
 from fastapi import APIRouter, Query, Depends, BackgroundTasks
 from typing import Optional
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 from core import get_db
 from schemas import WebSocketSearchRequest
 from services import job as job_service
-from scraper import search_jobs_linkedin, search_jobs_jobstreet, search_jobs_kalibrr
 
 logger = logging.getLogger(__name__)
 
@@ -18,63 +16,6 @@ router = APIRouter(
     prefix="/jobs",
     tags=["jobs"],
 )
-
-
-async def run_background_scrape(request: WebSocketSearchRequest):
-    """
-    Background task helper to perform scraping and database update concurrently.
-    Creates and closes its own db session to avoid thread-safety and lifespan issues.
-    """
-    from core.database import SessionLocal
-
-    logger.info(f"Starting background scraping for keywords: '{request.keywords}'")
-
-    db = SessionLocal()
-    try:
-        # Get existing IDs
-        existing_ids = job_service.get_existing_ids(db)
-
-        # Map portal key → scraper function
-        portal_scrapers = {
-            "linkedin": search_jobs_linkedin,
-            "jobstreet": search_jobs_jobstreet,
-            "kalibrr": search_jobs_kalibrr,
-        }
-
-        # Filter only valid & selected portals
-        portals = [p for p in (request.job_portals or []) if p in portal_scrapers]
-        if not portals:
-            portals = ["linkedin"]  # fallback
-
-        # Run selected scrapers concurrently without a WebSocket manager
-        tasks = [
-            portal_scrapers[portal](
-                request=request,
-                existing_ids=existing_ids,
-            )
-            for portal in portals
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Merge results, skip any that errored
-        all_jobs = []
-        for portal, result in zip(portals, results):
-            if isinstance(result, Exception):
-                logger.error(f"Error in background scraper for {portal}: {str(result)}")
-            elif result:
-                all_jobs.extend(result)
-
-        # Save new jobs to database
-        new_count = job_service.save_scraped_jobs(
-            db, all_jobs, request.keywords, session_id=request.session_id
-        )
-        logger.info(
-            f"Background scraping completed. Found {len(all_jobs)} total jobs, {new_count} new jobs saved."
-        )
-    except Exception as e:
-        logger.error(f"Error during background scraping execution: {str(e)}")
-    finally:
-        db.close()
 
 
 @router.post("/scrape")
@@ -89,7 +30,7 @@ async def scrape_jobs(
     logger.info(
         f"Triggered scraping via API for keywords: '{request.keywords}' on portals: {request.job_portals}"
     )
-    background_tasks.add_task(run_background_scrape, request)
+    background_tasks.add_task(job_service.run_background_scrape, request)
     return {
         "success": True,
         "status": "processing",
