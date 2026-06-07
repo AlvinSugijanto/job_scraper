@@ -4,22 +4,41 @@ import { useFilters } from "@/hooks/use-filters";
 import { SimpleTable, usePagination } from "@/components/table/simple-table";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import React, { useEffect, useState } from "react";
-import { Calendar, Download, ExternalLink, MapPin, Search } from "lucide-react";
+import {
+  Calendar,
+  Download,
+  ExternalLink,
+  MapPin,
+  Search,
+  EllipsisVertical,
+} from "lucide-react";
 import { JobsFilters } from "../components/jobs-filters";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 import { Button } from "@/components/ui/button";
-import { fDate, fDateTime } from "@/utils/format-time";
+import { fDate, fDateTime, toUTC7 } from "@/utils/format-time";
 import { Badge } from "@/components/ui/badge";
 import SearchInput from "@/components/search-input";
 import SessionDetailView from "../session-detail-view";
 import AllJobsSections from "./all-jobs-sections";
+import { toast } from "sonner";
+import DeleteDialog from "@/components/delete-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const PAGE_SIZE = 10;
 
 const SessionJobsSections = () => {
   const searchModal = useBoolean(false);
+  const deleteModal = useBoolean(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+
   const { data: jobs, call, loading } = useApi();
+  const { call: callDelete, loading: loadingDelete } = useApi();
   const [session, setSession] = useState(null);
 
   const { page, pageSize, setPage, paginationProps } = usePagination({
@@ -62,6 +81,19 @@ const SessionJobsSections = () => {
     const params = getQueryParams({ page, perPage: pageSize });
     call(`/api/v1/sessions?${params}`);
   };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedItem?.id) return;
+    try {
+      await callDelete(`/api/v1/sessions/${selectedItem.id}`, "DELETE");
+      toast.success(`Session "${selectedItem.name}" deleted successfully.`);
+      deleteModal.onFalse();
+      fetchJobs();
+    } catch (error) {
+      toast.error(error.message || "Failed to delete session");
+    }
+  };
+
   // Row click → open job detail in new tab
   const handleRowClick = (row) => {
     setSession(row);
@@ -98,7 +130,7 @@ const SessionJobsSections = () => {
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm" title={fDateTime(row.start_run_time)}>
-            {fDate(row.start_run_time) || "-"}
+            {fDateTime(toUTC7(row.start_run_time)) || "-"}
           </span>
         </div>
       ),
@@ -119,21 +151,39 @@ const SessionJobsSections = () => {
     {
       key: "actions",
       label: "Actions",
-      className: "w-[80px]",
+      className: "w-[80px] text-right",
       render: (row) => (
-        <div
-          className="flex items-center gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => window.open(row.job_url, "_blank")}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EllipsisVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setSession(row);
+              }}
+            >
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedItem(row);
+                deleteModal.onTrue();
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];
@@ -192,6 +242,15 @@ const SessionJobsSections = () => {
         open={searchModal.value}
         setOpen={searchModal.setValue}
         refetch={fetchJobs}
+      />
+
+      <DeleteDialog
+        open={deleteModal.value}
+        setOpen={deleteModal.setValue}
+        title="Delete Session"
+        description={`Are you sure you want to delete session "${selectedItem?.name || ""}"?`}
+        onConfirm={handleConfirmDelete}
+        loading={loadingDelete}
       />
     </div>
   );

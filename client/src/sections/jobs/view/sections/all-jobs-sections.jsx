@@ -16,7 +16,7 @@ import { JobsFilters } from "../components/jobs-filters";
 import { SearchJobsDialog } from "@/components/jobs/search-jobs-dialog";
 import { JOB_CONTRACT, JOB_PORTALS, JOB_TYPE } from "@/data/enums";
 import { Button } from "@/components/ui/button";
-import { fDate, fDateTime } from "@/utils/format-time";
+import { fDate, fDateTime, toUTC7 } from "@/utils/format-time";
 import { Badge } from "@/components/ui/badge";
 
 const PAGE_SIZE = 10;
@@ -154,7 +154,7 @@ const AllJobsSections = ({ session, setSession }) => {
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm" title={fDateTime(row.created_at)}>
-            {fDate(row.created_at) || "-"}
+            {fDateTime(toUTC7(row.created_at)) || "-"}
           </span>
         </div>
       ),
