@@ -10,21 +10,23 @@ import os
 import re
 import importlib
 
-# Add current directory to python path
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+# Add current directory and parent directory to python path
+script_dir = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(script_dir)
+sys.path.append(os.path.abspath(os.path.join(script_dir, "..")))
 
 
 def camel_to_snake(name):
-    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
 
 def snake_to_camel(name):
-    return ''.join(word.capitalize() for word in name.split('_'))
+    return "".join(word.capitalize() for word in name.split("_"))
 
 
 def snake_to_title(name):
-    return ' '.join(word.capitalize() for word in name.split('_'))
+    return " ".join(word.capitalize() for word in name.split("_"))
 
 
 def pluralize_snake(name):
@@ -38,53 +40,54 @@ def pluralize_snake(name):
 
 def map_type_to_python(col_type):
     t_name = str(col_type).lower()
-    if 'varchar' in t_name or 'string' in t_name or 'text' in t_name:
-        return 'str'
-    elif 'int' in t_name:
-        return 'int'
-    elif 'bool' in t_name:
-        return 'bool'
-    elif 'datetime' in t_name:
-        return 'datetime'
-    elif 'date' in t_name:
-        return 'date'
-    elif 'float' in t_name or 'numeric' in t_name or 'decimal' in t_name:
-        return 'float'
-    
+    if "varchar" in t_name or "string" in t_name or "text" in t_name:
+        return "str"
+    elif "int" in t_name:
+        return "int"
+    elif "bool" in t_name:
+        return "bool"
+    elif "datetime" in t_name:
+        return "datetime"
+    elif "date" in t_name:
+        return "date"
+    elif "float" in t_name or "numeric" in t_name or "decimal" in t_name:
+        return "float"
+
     # Check types using sqlalchemy.types imports if possible
     import sqlalchemy.types as types
+
     if isinstance(col_type, types.String):
-        return 'str'
+        return "str"
     elif isinstance(col_type, types.Integer):
-        return 'int'
+        return "int"
     elif isinstance(col_type, types.Boolean):
-        return 'bool'
+        return "bool"
     elif isinstance(col_type, types.DateTime):
-        return 'datetime'
+        return "datetime"
     elif isinstance(col_type, types.Float):
-        return 'float'
-    return 'Any'
+        return "float"
+    return "Any"
 
 
 def add_to_all_list(content: str, item: str) -> str:
-    match = re.search(r'__all__\s*=\s*\[([^\]]*)\]', content, re.DOTALL)
+    match = re.search(r"__all__\s*=\s*\[([^\]]*)\]", content, re.DOTALL)
     if not match:
         return content
-    
+
     inner = match.group(1).strip()
     if not inner:
         new_inner = f'"{item}"'
     else:
-        elements = [x.strip() for x in re.split(r',\s*', inner) if x.strip()]
+        elements = [x.strip() for x in re.split(r",\s*", inner) if x.strip()]
         quoted_item = f'"{item}"'
         if quoted_item not in elements:
             elements.append(quoted_item)
-            
-        if '\n' in match.group(1):
+
+        if "\n" in match.group(1):
             new_inner = "\n    " + ",\n    ".join(elements) + ",\n"
         else:
             new_inner = ", ".join(elements)
-            
+
     start, end = match.span(1)
     return content[:start] + new_inner + content[end:]
 
@@ -93,27 +96,27 @@ def register_in_init(filepath, import_line, export_name):
     if not os.path.exists(filepath):
         print(f"  [Warning] File not found: {filepath}")
         return
-        
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+    with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        
+
     if export_name in content:
         print(f"  [Already Registered] {export_name} in {filepath}")
         return
-        
+
     if import_line in content:
         content_with_import = content
     else:
-        all_match = re.search(r'^__all__', content, re.MULTILINE)
+        all_match = re.search(r"^__all__", content, re.MULTILINE)
         if all_match:
             idx = all_match.start()
             content_with_import = content[:idx] + import_line + "\n" + content[idx:]
         else:
             content_with_import = content + "\n" + import_line + "\n"
-        
+
     updated_content = add_to_all_list(content_with_import, export_name)
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
+
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(updated_content)
     print(f"  [Registered] {export_name} in {filepath}")
 
@@ -122,64 +125,80 @@ def register_in_main(main_path, router_name):
     if not os.path.exists(main_path):
         print(f"  [Warning] File not found: {main_path}")
         return
-        
-    with open(main_path, 'r', encoding='utf-8') as f:
+
+    with open(main_path, "r", encoding="utf-8") as f:
         content = f.read()
-        
+
     if router_name in content:
         print(f"  [Already Registered] {router_name} in {main_path}")
         return
-        
+
     # 1. Update imports
-    import_match = re.search(r'from routers import ([^\n]+)', content)
+    import_match = re.search(r"from routers import ([^\n]+)", content)
     if import_match:
         imported = [x.strip() for x in import_match.group(1).split(",") if x.strip()]
         if router_name not in imported:
             imported.append(router_name)
         new_import_line = f"from routers import " + ", ".join(imported)
-        content = content[:import_match.start()] + new_import_line + content[import_match.end():]
+        content = (
+            content[: import_match.start()]
+            + new_import_line
+            + content[import_match.end() :]
+        )
     else:
-        content = content.replace("app = FastAPI(", f"from routers import {router_name}\n\napp = FastAPI(")
-        
+        content = content.replace(
+            "app = FastAPI(", f"from routers import {router_name}\n\napp = FastAPI("
+        )
+
     # 2. Update app.include_router
-    include_matches = list(re.finditer(r'app\.include_router\([^\)]+\)', content))
+    include_matches = list(re.finditer(r"app\.include_router\([^\)]+\)", content))
     if include_matches:
         last_match = include_matches[-1]
         insert_idx = last_match.end()
-        content = content[:insert_idx] + f"\napp.include_router({router_name})" + content[insert_idx:]
+        content = (
+            content[:insert_idx]
+            + f"\napp.include_router({router_name})"
+            + content[insert_idx:]
+        )
     else:
         if "# ============ ROUTERS ============" in content:
             idx = content.find("# ============ ROUTERS ============")
             eol = content.find("\n", idx)
-            content = content[:eol+1] + f"app.include_router({router_name})\n" + content[eol+1:]
-               
-    with open(main_path, 'w', encoding='utf-8') as f:
+            content = (
+                content[: eol + 1]
+                + f"app.include_router({router_name})\n"
+                + content[eol + 1 :]
+            )
+
+    with open(main_path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"  [Registered] Router inclusion in {main_path}")
 
 
 def deregister_from_all_list(content: str, item: str) -> str:
-    match = re.search(r'__all__\s*=\s*\[([^\]]*)\]', content, re.DOTALL)
+    match = re.search(r"__all__\s*=\s*\[([^\]]*)\]", content, re.DOTALL)
     if not match:
         return content
-    
+
     inner = match.group(1).strip()
     if not inner:
         return content
-        
-    elements = [x.strip().strip('"').strip("'") for x in re.split(r',\s*', inner) if x.strip()]
+
+    elements = [
+        x.strip().strip('"').strip("'") for x in re.split(r",\s*", inner) if x.strip()
+    ]
     if item in elements:
         elements.remove(item)
-        
+
     if not elements:
         new_inner = ""
     else:
         quoted_elements = [f'"{x}"' for x in elements]
-        if '\n' in match.group(1):
+        if "\n" in match.group(1):
             new_inner = "\n    " + ",\n    ".join(quoted_elements) + ",\n"
         else:
             new_inner = ", ".join(quoted_elements)
-            
+
     start, end = match.span(1)
     return content[:start] + new_inner + content[end:]
 
@@ -187,18 +206,18 @@ def deregister_from_all_list(content: str, item: str) -> str:
 def deregister_from_init(filepath, import_line, export_name):
     if not os.path.exists(filepath):
         return
-        
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+    with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        
+
     # Remove import line
     content = content.replace(import_line + "\n", "")
     content = content.replace(import_line, "")
-    
+
     # Remove from __all__
     content = deregister_from_all_list(content, export_name)
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
+
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"  [Deregistered] {export_name} from {filepath}")
 
@@ -206,37 +225,41 @@ def deregister_from_init(filepath, import_line, export_name):
 def deregister_from_main(main_path, router_name):
     if not os.path.exists(main_path):
         return
-        
-    with open(main_path, 'r', encoding='utf-8') as f:
+
+    with open(main_path, "r", encoding="utf-8") as f:
         content = f.read()
-        
+
     # 1. Update imports
-    import_match = re.search(r'from routers import ([^\n]+)', content)
+    import_match = re.search(r"from routers import ([^\n]+)", content)
     if import_match:
         imported = [x.strip() for x in import_match.group(1).split(",") if x.strip()]
         if router_name in imported:
             imported.remove(router_name)
         if imported:
             new_import_line = f"from routers import " + ", ".join(imported)
-            content = content[:import_match.start()] + new_import_line + content[import_match.end():]
+            content = (
+                content[: import_match.start()]
+                + new_import_line
+                + content[import_match.end() :]
+            )
         else:
             content = content.replace(import_match.group(0) + "\n", "")
             content = content.replace(import_match.group(0), "")
-            
+
     # 2. Update app.include_router
     router_call = f"app.include_router({router_name})"
     content = content.replace(router_call + "\n", "")
     content = content.replace(router_call, "")
-               
-    with open(main_path, 'w', encoding='utf-8') as f:
+
+    with open(main_path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"  [Deregistered] Router {router_name} from {main_path}")
 
 
 def main():
-    rollback = '--rollback' in sys.argv
-    args = [a for a in sys.argv[1:] if a != '--rollback']
-    
+    rollback = "--rollback" in sys.argv or "rollback" in sys.argv
+    args = [a for a in sys.argv[1:] if a not in ["--rollback", "rollback"]]
+
     if len(args) < 1:
         print("Usage: python generate_crud.py <ModelClassName> [--rollback]")
         print("Example: python generate_crud.py BannedCompany")
@@ -249,7 +272,7 @@ def main():
 
     if rollback:
         print(f"=== Rolling Back Backend CRUD Layers for {model_class_name} ===")
-        
+
         # 1. Delete generated files
         paths_to_delete = [
             f"schemas/{model_snake_name}.py",
@@ -257,7 +280,7 @@ def main():
             f"services/{model_snake_name}.py",
             f"routers/{model_plural_snake_name}.py",
             f"routers/{model_snake_name}.py",
-            f"tests/test_{model_snake_name}.py"
+            f"tests/test_{model_snake_name}.py",
         ]
         # Use set to avoid double removal if plural and singular are the same
         for path in sorted(list(set(paths_to_delete))):
@@ -266,70 +289,74 @@ def main():
                 print(f"  [Deleted] {path}")
             else:
                 print(f"  [Not Found] {path}")
-                
+
         # 2. Revert registrations
         print("\n=== Reverting Registered Imports ===")
-        
+
         # models/__init__.py
         deregister_from_init(
             "models/__init__.py",
             f"from .{model_snake_name} import {model_class_name}",
-            model_class_name
+            model_class_name,
         )
-        
+
         # schemas/__init__.py
         deregister_from_init(
             "schemas/__init__.py",
             f"from .{model_snake_name} import {model_class_name}Create, {model_class_name}Update",
-            f"{model_class_name}Create"
+            f"{model_class_name}Create",
         )
         deregister_from_init(
             "schemas/__init__.py",
             f"from .{model_snake_name} import {model_class_name}Create, {model_class_name}Update",
-            f"{model_class_name}Update"
+            f"{model_class_name}Update",
         )
-        
+
         # routers/__init__.py (Revert both singular and plural variants of routers)
         router_var_name = f"{model_plural_snake_name}_router"
         deregister_from_init(
             "routers/__init__.py",
             f"from .{model_plural_snake_name} import router as {router_var_name}",
-            router_var_name
+            router_var_name,
         )
         deregister_from_init(
             "routers/__init__.py",
             f"from .{model_snake_name} import router as {router_var_name}",
-            router_var_name
+            router_var_name,
         )
         # also handle case where router variable itself was singular
         singular_router_var = f"{model_snake_name}_router"
         deregister_from_init(
             "routers/__init__.py",
             f"from .{model_snake_name} import router as {singular_router_var}",
-            singular_router_var
+            singular_router_var,
         )
         deregister_from_init(
             "routers/__init__.py",
             f"from .{model_plural_snake_name} import router as {singular_router_var}",
-            singular_router_var
+            singular_router_var,
         )
-        
+
         # main.py
         deregister_from_main("main.py", router_var_name)
         deregister_from_main("main.py", singular_router_var)
-        
+
         print("\nRollback Completed Successfully!")
         sys.exit(0)
 
     print(f"=== Scaffolding Backend CRUD Layers for {model_class_name} ===")
-    
+
     # Dynamically import the model class
     try:
         model_module = importlib.import_module(f"models.{model_snake_name}")
         model_class = getattr(model_module, model_class_name)
     except Exception as e:
-        print(f"Error: Could not import {model_class_name} from models.{model_snake_name}")
-        print("Please ensure the model file exists at models/ and is correctly defined.")
+        print(
+            f"Error: Could not import {model_class_name} from models.{model_snake_name}"
+        )
+        print(
+            "Please ensure the model file exists at models/ and is correctly defined."
+        )
         print(f"Details: {e}")
         sys.exit(1)
 
@@ -346,68 +373,74 @@ def main():
 
     columns_info = []
     for col in mapper.columns:
-        columns_info.append({
-            'name': col.key,
-            'type': col.type,
-            'primary_key': col.primary_key,
-            'nullable': col.nullable,
-            'unique': col.unique or False,
-            'default': col.default
-        })
+        columns_info.append(
+            {
+                "name": col.key,
+                "type": col.type,
+                "primary_key": col.primary_key,
+                "nullable": col.nullable,
+                "unique": col.unique or False,
+                "default": col.default,
+            }
+        )
 
     print(f"Detected columns:")
     for col in columns_info:
-        print(f"  - {col['name']}: {col['type']} (PK: {col['primary_key']}, Nullable: {col['nullable']})")
+        print(
+            f"  - {col['name']}: {col['type']} (PK: {col['primary_key']}, Nullable: {col['nullable']})"
+        )
 
     # Primary Key
-    pk_col_info = next((c for c in columns_info if c['primary_key']), None)
+    pk_col_info = next((c for c in columns_info if c["primary_key"]), None)
     if not pk_col_info:
-        pk_col = 'id'
-        pk_type = 'int'
+        pk_col = "id"
+        pk_type = "int"
     else:
-        pk_col = pk_col_info['name']
-        pk_type = map_type_to_python(pk_col_info['type'])
+        pk_col = pk_col_info["name"]
+        pk_type = map_type_to_python(pk_col_info["type"])
 
     # Input columns (exclude auto-increment PK and timestamp fields like created_at)
     input_columns = []
     for col in columns_info:
-        p_type = map_type_to_python(col['type'])
-        is_pk_int = col['primary_key'] and p_type == 'int'
-        is_system_timestamp = col['name'] in ['created_at', 'updated_at']
+        p_type = map_type_to_python(col["type"])
+        is_pk_int = col["primary_key"] and p_type == "int"
+        is_system_timestamp = col["name"] in ["created_at", "updated_at"]
         if not is_pk_int and not is_system_timestamp:
             input_columns.append(col)
 
     # Identify search column (prioritize name, keyword, title, or first string)
     search_col = None
-    for col_name in ['name', 'keyword', 'title']:
-        if any(c['name'] == col_name for c in columns_info):
+    for col_name in ["name", "keyword", "title"]:
+        if any(c["name"] == col_name for c in columns_info):
             search_col = col_name
             break
     if not search_col:
         for col in input_columns:
-            if map_type_to_python(col['type']) == 'str':
-                search_col = col['name']
+            if map_type_to_python(col["type"]) == "str":
+                search_col = col["name"]
                 break
     if not search_col and input_columns:
-        search_col = input_columns[0]['name']
+        search_col = input_columns[0]["name"]
 
-    search_col_type = 'str'
+    search_col_type = "str"
     if search_col:
-        search_col_info = next((c for c in columns_info if c['name'] == search_col), None)
+        search_col_info = next(
+            (c for c in columns_info if c["name"] == search_col), None
+        )
         if search_col_info:
-            search_col_type = map_type_to_python(search_col_info['type'])
+            search_col_type = map_type_to_python(search_col_info["type"])
 
     # Default sort column
     default_sort_col = None
-    if any(c['name'] == 'created_at' for c in columns_info):
-        default_sort_col = 'created_at'
+    if any(c["name"] == "created_at" for c in columns_info):
+        default_sort_col = "created_at"
     elif search_col:
         default_sort_col = search_col
     else:
         default_sort_col = pk_col
 
     # Generate directories if they don't exist
-    for folder in ['schemas', 'repositories', 'services', 'routers', 'tests']:
+    for folder in ["schemas", "repositories", "services", "routers", "tests"]:
         os.makedirs(folder, exist_ok=True)
 
     # ================= 1. SCHEMA GENERATION =================
@@ -416,19 +449,22 @@ def main():
     has_optional = False
 
     for col in input_columns:
-        p_type = map_type_to_python(col['type'])
-        if p_type == 'datetime':
+        p_type = map_type_to_python(col["type"])
+        if p_type == "datetime":
             has_datetime = True
-        if col['nullable']:
+        if col["nullable"]:
             has_optional = True
             schema_fields.append(f"    {col['name']}: Optional[{p_type}] = None")
         else:
-            if p_type == 'str':
+            if p_type == "str":
                 schema_fields.append(f"    {col['name']}: str = Field(min_length=1)")
             else:
                 schema_fields.append(f"    {col['name']}: {p_type}")
 
-    schema_imports = ["from pydantic import BaseModel, Field", "from typing import Optional"]
+    schema_imports = [
+        "from pydantic import BaseModel, Field",
+        "from typing import Optional",
+    ]
     if has_datetime:
         schema_imports.append("from datetime import datetime")
 
@@ -437,9 +473,11 @@ def main():
 
     schema_update_fields = []
     for col in input_columns:
-        p_type = map_type_to_python(col['type'])
+        p_type = map_type_to_python(col["type"])
         schema_update_fields.append(f"    {col['name']}: Optional[{p_type}] = None")
-    fields_update_str = "\n".join(schema_update_fields) if schema_update_fields else "    pass"
+    fields_update_str = (
+        "\n".join(schema_update_fields) if schema_update_fields else "    pass"
+    )
 
     schema_content = f"""\"\"\"
 Pydantic Schemas for {snake_to_title(model_plural_snake_name)}.
@@ -466,24 +504,28 @@ class {model_class_name}Update(BaseModel):
 {fields_update_str}
 """
     schema_path = f"schemas/{model_snake_name}.py"
-    with open(schema_path, 'w', encoding='utf-8') as f:
+    with open(schema_path, "w", encoding="utf-8") as f:
         f.write(schema_content)
     print(f"  [Created] {schema_path}")
 
     # ================= 2. REPOSITORY GENERATION =================
     sort_columns_map_lines = []
     for col in columns_info:
-        sort_columns_map_lines.append(f'"{col["name"]}": {model_class_name}.{col["name"]},')
+        sort_columns_map_lines.append(
+            f'"{col["name"]}": {model_class_name}.{col["name"]},'
+        )
     sort_columns_map = "\n        ".join(sort_columns_map_lines)
 
     sig_parts = []
-    non_nullable_cols = [c for c in input_columns if not c['nullable']]
-    nullable_cols = [c for c in input_columns if c['nullable']]
+    non_nullable_cols = [c for c in input_columns if not c["nullable"]]
+    nullable_cols = [c for c in input_columns if c["nullable"]]
 
     for col in non_nullable_cols:
         sig_parts.append(f"{col['name']}: {map_type_to_python(col['type'])}")
     for col in nullable_cols:
-        sig_parts.append(f"{col['name']}: Optional[{map_type_to_python(col['type'])}] = None")
+        sig_parts.append(
+            f"{col['name']}: Optional[{map_type_to_python(col['type'])}] = None"
+        )
 
     create_args_signature = ", ".join(sig_parts)
 
@@ -521,7 +563,7 @@ class {model_class_name}Update(BaseModel):
     )"""
 
     repo_imports = ["from typing import Optional"]
-    if any(map_type_to_python(c['type']) == 'datetime' for c in input_columns):
+    if any(map_type_to_python(c["type"]) == "datetime" for c in input_columns):
         repo_imports.append("from datetime import datetime")
     repo_imports_str = "\n".join(repo_imports)
 
@@ -607,7 +649,7 @@ def update(db: Session, {pk_col}: {pk_type}, data: dict):
     return db_{model_snake_name}
 """
     repo_path = f"repositories/{model_snake_name}.py"
-    with open(repo_path, 'w', encoding='utf-8') as f:
+    with open(repo_path, "w", encoding="utf-8") as f:
         f.write(repo_content)
     print(f"  [Created] {repo_path}")
 
@@ -619,7 +661,7 @@ def update(db: Session, {pk_col}: {pk_type}, data: dict):
         check_duplicate_create = f"""    existing = {model_snake_name}_repo.find(db, data["{search_col}"])
     if existing:
         raise HTTPException(status_code=400, detail="{snake_to_title(model_snake_name)} already exists")"""
-        
+
         check_duplicate_update = f"""    if "{search_col}" in data:
         existing = {model_snake_name}_repo.find(db, data["{search_col}"])
         if existing and existing.{pk_col} != {pk_col}:
@@ -629,7 +671,7 @@ def update(db: Session, {pk_col}: {pk_type}, data: dict):
         check_duplicate_update = "    pass"
 
     service_imports = ["from typing import Optional"]
-    if any(map_type_to_python(c['type']) == 'datetime' for c in input_columns):
+    if any(map_type_to_python(c["type"]) == "datetime" for c in input_columns):
         service_imports.append("from datetime import datetime")
     service_imports_str = "\n".join(service_imports)
 
@@ -695,12 +737,12 @@ def update(db: Session, {pk_col}: {pk_type}, data: dict):
     return {{"success": True, "data": db_record.to_dict()}}
 """
     service_path = f"services/{model_snake_name}.py"
-    with open(service_path, 'w', encoding='utf-8') as f:
+    with open(service_path, "w", encoding="utf-8") as f:
         f.write(service_content)
     print(f"  [Created] {service_path}")
 
     # ================= 4. ROUTER GENERATION =================
-    sort_fields_desc = ", ".join(col['name'] for col in columns_info)
+    sort_fields_desc = ", ".join(col["name"] for col in columns_info)
     entity_router_prefix = model_plural_snake_name.replace("_", "-")
 
     router_content = f"""\"\"\"{snake_to_title(model_plural_snake_name)} routes.\"\"\"
@@ -767,7 +809,7 @@ def patch({pk_col}: {pk_type}, body: {model_class_name}Update, db: Session = Dep
     return {model_snake_name}_service.update(db, {pk_col}, body.dict(exclude_unset=True))
 """
     router_path = f"routers/{model_plural_snake_name}.py"
-    with open(router_path, 'w', encoding='utf-8') as f:
+    with open(router_path, "w", encoding="utf-8") as f:
         f.write(router_content)
     print(f"  [Created] {router_path}")
 
@@ -775,32 +817,32 @@ def patch({pk_col}: {pk_type}, body: {model_class_name}Update, db: Session = Dep
     test_payload_items = []
     test_update_payload_items = []
     test_patch_payload_items = []
-    
+
     for col in input_columns:
-        col_name = col['name']
-        col_type = map_type_to_python(col['type'])
-        
-        if col_type == 'str':
+        col_name = col["name"]
+        col_type = map_type_to_python(col["type"])
+
+        if col_type == "str":
             val = f'"test_{col_name}"'
             up_val = f'"updated_{col_name}"'
             patch_val = f'"patched_{col_name}"'
-        elif col_type == 'int':
-            val = '42'
-            up_val = '100'
-            patch_val = '50'
-        elif col_type == 'bool':
-            val = 'True'
-            up_val = 'False'
-            patch_val = 'True'
-        elif col_type == 'float':
-            val = '1.5'
-            up_val = '2.5'
-            patch_val = '3.5'
+        elif col_type == "int":
+            val = "42"
+            up_val = "100"
+            patch_val = "50"
+        elif col_type == "bool":
+            val = "True"
+            up_val = "False"
+            patch_val = "True"
+        elif col_type == "float":
+            val = "1.5"
+            up_val = "2.5"
+            patch_val = "3.5"
         else:
-            val = 'None'
-            up_val = 'None'
-            patch_val = 'None'
-            
+            val = "None"
+            up_val = "None"
+            patch_val = "None"
+
         test_payload_items.append(f'"{col_name}": {val}')
         test_update_payload_items.append(f'"{col_name}": {up_val}')
         test_patch_payload_items.append(f'"{col_name}": {patch_val}')
@@ -824,22 +866,34 @@ def test_create_{model_snake_name}_duplicate(client):
     create_assertions = []
     update_assertions = []
     patch_assertions = []
-    
+
     for col in input_columns:
-        col_name = col['name']
-        col_type = map_type_to_python(col['type'])
-        if col_type == 'datetime':
+        col_name = col["name"]
+        col_type = map_type_to_python(col["type"])
+        if col_type == "datetime":
             continue
-            
-        val_idx = next(i for i, item in enumerate(test_payload_items) if item.startswith(f'"{col_name}":'))
+
+        val_idx = next(
+            i
+            for i, item in enumerate(test_payload_items)
+            if item.startswith(f'"{col_name}":')
+        )
         val = test_payload_items[val_idx].split(": ", 1)[1]
-        
-        up_val_idx = next(i for i, item in enumerate(test_update_payload_items) if item.startswith(f'"{col_name}":'))
+
+        up_val_idx = next(
+            i
+            for i, item in enumerate(test_update_payload_items)
+            if item.startswith(f'"{col_name}":')
+        )
         up_val = test_update_payload_items[up_val_idx].split(": ", 1)[1]
-        
-        patch_val_idx = next(i for i, item in enumerate(test_patch_payload_items) if item.startswith(f'"{col_name}":'))
+
+        patch_val_idx = next(
+            i
+            for i, item in enumerate(test_patch_payload_items)
+            if item.startswith(f'"{col_name}":')
+        )
         patch_val = test_patch_payload_items[patch_val_idx].split(": ", 1)[1]
-        
+
         create_assertions.append(f'    assert data["{col_name}"] == {val}')
         update_assertions.append(f'    assert data["{col_name}"] == {up_val}')
         patch_assertions.append(f'    assert data["{col_name}"] == {patch_val}')
@@ -905,30 +959,30 @@ def test_delete_{model_snake_name}(client):
     assert verify_resp.json()["total"] == 0
 """
     test_path = f"tests/test_{model_snake_name}.py"
-    with open(test_path, 'w', encoding='utf-8') as f:
+    with open(test_path, "w", encoding="utf-8") as f:
         f.write(test_content)
     print(f"  [Created] {test_path}")
 
     # ================= 6. AUTOMATIC REGISTRATION =================
     print("\n=== Registering Imports ===")
-    
+
     # 5.1 Register Model in models/__init__.py
     register_in_init(
         "models/__init__.py",
         f"from .{model_snake_name} import {model_class_name}",
-        model_class_name
+        model_class_name,
     )
 
     # 5.2 Register Schema in schemas/__init__.py
     register_in_init(
         "schemas/__init__.py",
         f"from .{model_snake_name} import {model_class_name}Create, {model_class_name}Update",
-        f"{model_class_name}Create"
+        f"{model_class_name}Create",
     )
     register_in_init(
         "schemas/__init__.py",
         f"from .{model_snake_name} import {model_class_name}Create, {model_class_name}Update",
-        f"{model_class_name}Update"
+        f"{model_class_name}Update",
     )
 
     # 5.3 Register Router in routers/__init__.py
@@ -936,7 +990,7 @@ def test_delete_{model_snake_name}(client):
     register_in_init(
         "routers/__init__.py",
         f"from .{model_plural_snake_name} import router as {router_var_name}",
-        router_var_name
+        router_var_name,
     )
 
     # 5.4 Register in main.py

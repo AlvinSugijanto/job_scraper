@@ -55,9 +55,24 @@ __all__ = ["Job", "BannedCompany", "BannedKeyword", "Sessions"]
 ```
 
 ### Step 3: Scaffold the CRUD Layers
-Run the CLI scaffolding script to auto-generate routers, schemas, services, and repositories:
+Run the CLI scaffolding script to auto-generate routers, schemas, services, and repositories.
+
+**From the project root (Recommended):**
 ```bash
-venv/Scripts/python.exe generate_crud.py Sessions
+# To generate CRUD layers
+npm run migrations Sessions
+
+# To roll back/delete generated CRUD layers
+npm run migrations Sessions rollback
+```
+
+**Or directly from the `server/` directory:**
+```bash
+# Windows
+venv\Scripts\python.exe scripts\generate_crud.py Sessions
+
+# Linux/macOS
+venv/bin/python scripts/generate_crud.py Sessions
 ```
 
 ### Step 4: Boot the Server

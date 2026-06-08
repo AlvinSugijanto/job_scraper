@@ -13,7 +13,8 @@
     "server:dev": "node scripts/server.js run",
     "server:setup": "node scripts/server.js setup",
     "server:test": "node scripts/server.js test",
-    "test": "npm run server:test"
+    "test": "npm run server:test",
+    "migrations": "node scripts/server.js migrations"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

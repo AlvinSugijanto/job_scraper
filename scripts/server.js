@@ -107,7 +107,29 @@ if (command === 'setup') {
   testProcess.on('close', (code) => {
     process.exit(code);
   });
+} else if (command === 'migrations') {
+  const pythonExe = getVenvPython();
+  
+  if (!fs.existsSync(pythonExe)) {
+    console.error(`[Error] Virtual environment not found at: ${pythonExe}`);
+    console.error('[Error] Please run "npm run setup" first to initialize the project environment.');
+    process.exit(1);
+  }
+
+  const scriptPath = path.join('scripts', 'generate_crud.py');
+  console.log(`[Migrations] Running generate_crud.py using: ${pythonExe}...`);
+  
+  const migrationProcess = spawn(pythonExe, [scriptPath, ...extraArgs], {
+    cwd: serverDir,
+    stdio: 'inherit',
+    shell: false
+  });
+
+  migrationProcess.on('close', (code) => {
+    process.exit(code);
+  });
 } else {
-  console.error(`[Error] Unknown command: ${command}. Use "setup", "run", or "test".`);
+  console.error(`[Error] Unknown command: ${command}. Use "setup", "run", "test", or "migrations".`);
   process.exit(1);
 }
+

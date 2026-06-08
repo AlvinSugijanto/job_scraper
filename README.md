@@ -56,7 +56,7 @@ docker-compose up -d --build
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
-### Option 2: Manual Setup
+### Option 2: Development Setup
 
 #### Prerequisites
 
@@ -88,6 +88,22 @@ npm run dev
 
 - Frontend: http://localhost:3001
 - Backend API: http://localhost:8000
+
+#### Scaffolding Backend CRUD Layers (Migrations)
+
+To easily scaffold new database models into complete CRUD layers (Schemas, Repositories, Services, Routers, and Tests) from the project root:
+
+1. Create and define your SQLAlchemy model in `server/models/your_model.py`.
+2. Register the model in `server/models/__init__.py`.
+3. Run the generator script:
+
+```bash
+# Generate CRUD layers for a model
+npm run migrations YourModelClassName
+
+# Roll back generated CRUD layers
+npm run migrations YourModelClassName rollback
+```
 
 ---
 
