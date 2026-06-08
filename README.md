@@ -8,11 +8,12 @@ A full-stack application to scrape and manage job listings from multiple web por
 
 ## Features
 
-- 🔍 **Search Jobs** - Scrape job listings from LinkedIn with filters
-- 📊 **Dashboard** - View and manage saved jobs with sorting & pagination
-- 🔄 **Real-time Progress** - WebSocket updates during scraping with rate limit countdown
-- 💾 **Persistent Storage** - SQLite database for storing jobs
-- 🐳 **Docker Ready** - Run with Docker Compose
+- **Search Jobs** - Scrape job listings from LinkedIn with filters
+- **Dashboard** - View and manage saved jobs with sorting & pagination
+- **Filtering** - Skip jobs containing specific keywords (e.g., location restriction, tech stack mismatch) automatically using Banned Keywords & Companies configurations
+- **Real-time Progress** - WebSocket updates during scraping with rate limit countdown
+- **Persistent Storage** - SQLite database for storing jobs
+- **Docker Ready** - Run with Docker Compose
 
 ## Screenshots
 
@@ -115,24 +116,54 @@ job_scraper/
 
 ## API Endpoints
 
+### Job Endpoints
+
 | Method | Endpoint                 | Description                        |
 | ------ | ------------------------ | ---------------------------------- |
-| POST   | `/jobs/search`           | Search & scrape jobs from LinkedIn |
-| GET    | `/jobs/stored`           | Get saved jobs with filters        |
-| GET    | `/jobs/stored/{id}`      | Get job by ID                      |
-| DELETE | `/jobs/stored/{id}`      | Delete job                         |
-| DELETE | `/jobs/stored`           | Delete all jobs                    |
+| POST   | `/jobs/scrape`           | Trigger job scraping in background |
+| GET    | `/jobs`                  | Get saved jobs with filters        |
+| GET    | `/jobs/{id}`             | Get job by ID                      |
 | WS     | `/ws/scrape/{client_id}` | WebSocket for scraping progress    |
 
-### Query Parameters for `/jobs/stored`
+### Session Endpoints
 
-| Param      | Type   | Description                                               |
-| ---------- | ------ | --------------------------------------------------------- |
-| search     | string | Search in title, company, location                        |
-| sort_by    | string | title, company, location, salary, date_posted, created_at |
-| sort_order | string | asc, desc                                                 |
-| skip       | int    | Pagination offset                                         |
-| limit      | int    | Results per page (max 100)                                |
+| Method | Endpoint         | Description                                  |
+| ------ | ---------------- | -------------------------------------------- |
+| GET    | `/sessions`      | Get all sessions (with search/pagination)    |
+| POST   | `/sessions`      | Add a new session                            |
+| PUT    | `/sessions/{id}` | Full update a session                        |
+| PATCH  | `/sessions/{id}` | Partial update a session                     |
+| DELETE | `/sessions/{id}` | Delete a session                             |
+
+### Configuration Endpoints (Banned Keywords & Companies)
+
+| Method | Endpoint                 | Description                                      |
+| ------ | ------------------------ | ------------------------------------------------ |
+| GET    | `/banned-keywords`       | Get all banned keywords (with search/pagination) |
+| POST   | `/banned-keywords`       | Add a new banned keyword                         |
+| PUT    | `/banned-keywords/{id}`  | Full update a banned keyword                     |
+| PATCH  | `/banned-keywords/{id}`  | Partial update a banned keyword                  |
+| DELETE | `/banned-keywords/{id}`  | Delete a banned keyword                          |
+| GET    | `/banned-companies`      | Get all banned companies (with search/pagination)|
+| POST   | `/banned-companies`      | Add a new banned company                         |
+| PUT    | `/banned-companies/{id}` | Full update a banned company                     |
+| PATCH  | `/banned-companies/{id}` | Partial update a banned company                  |
+| DELETE | `/banned-companies/{id}` | Delete a banned company                          |
+
+### Query Parameters for `/jobs`
+
+| Param        | Type   | Description                                                                     |
+| ------------ | ------ | ------------------------------------------------------------------------------- |
+| search       | string | Search in title, company, location                                              |
+| job_type     | string | Filter by job type (remote, hybrid, onsite)                                     |
+| job_contract | string | Filter by job contract (full_time, part_time, internship, contract, temporary)  |
+| location     | string | Filter by location                                                              |
+| source       | string | Filter by source (linkedin, jobstreet, kalibrr)                                 |
+| session_id   | int    | Filter by session ID                                                            |
+| sort_by      | string | title, company, location, salary, date_posted, created_at (default: created_at) |
+| sort_order   | string | asc, desc (default: desc)                                                       |
+| page         | int    | Page number (default: 1)                                                        |
+| perPage      | int    | Items per page (default: 25)                                                    |
 
 ---
 
@@ -176,6 +207,17 @@ docker-compose logs -f
 docker-compose up --build server
 docker-compose up --build client
 ```
+
+---
+
+## Banned Keywords & Companies Filtering
+
+To improve scraper relevance and filter out low-quality listings (e.g., recruiter/staffing agency scams or irrelevant positions):
+
+1. **Banned Companies**: During scraping, the system checks the company name of each job. If it matches a name in the banned companies list (case-insensitive), the job is skipped.
+2. **Banned Keywords**: During scraping, the combined text (title, location, and description) is scanned for banned keywords. If any banned keyword is found, the job is skipped.
+
+These rules can be configured on the frontend under the **Configuration** page or through the API.
 
 ---
 
