@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
-    "setup": "npm run server:setup && npm run client:setup",
+    "setup": "npm install && npm run server:setup && npm run client:setup",
     "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"yellow,cyan\" \"npm run server:dev\" \"npm run client:dev\"",
     "client:dev": "cd client && npm run dev",
     "client:build": "cd client && npm run build",

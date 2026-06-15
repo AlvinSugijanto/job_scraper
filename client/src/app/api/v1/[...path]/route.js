@@ -2,13 +2,11 @@ import Cookies from "js-cookie";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const BACKEND_API = process.env.NEXT_PUBLIC_API_URL;
-
 async function handler(req, { params }) {
   const { path } = await params;
   const targetPath = path.join("/");
   const searchParams = req.nextUrl.search; // e.g. "?page=1&limit=10"
-  const targetUrl = `${BACKEND_API}/${targetPath}${searchParams}`;
+  const targetUrl = `${process.env.NEXT_PUBLIC_API_URL}/${targetPath}${searchParams}`;
 
   try {
     const cookieStore = await cookies();
